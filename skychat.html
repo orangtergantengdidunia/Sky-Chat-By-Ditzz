@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkyChat — Global Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<style>
+:root {
+  --sky-zenith:   #03061a;
+  --sky-mid:      #071832;
+  --sky-horizon:  #0d2545;
+  --sky-glow:     #0e3460;
+  --cloud-0:      rgba(255,255,255,0.03);
+  --cloud-1:      rgba(255,255,255,0.055);
+  --cloud-2:      rgba(255,255,255,0.085);
+  --cloud-3:      rgba(255,255,255,0.13);
+  --cloud-bdr:    rgba(255,255,255,0.10);
+  --cloud-bdr2:   rgba(255,255,255,0.18);
+  --sky-blue:     #38bdf8;
+  --sky-blue2:    #0ea5e9;
+  --sky-cyan:     #67e8f9;
+  --dawn-gold:    #fbbf24;
+  --dawn-orange:  #f97316;
+  --dawn-pink:    #fb7185;
+  --txt:   #e0f2fe;
+  --txt2:  #7eb8d4;
+  --txt3:  #3b82a0;
+  --sky-grad:   linear-gradient(135deg,#0ea5e9,#38bdf8);
+  --dawn-grad:  linear-gradient(135deg,#fbbf24,#f97316,#fb7185);
+  --notif-admin-bg:  rgba(251,113,133,0.12);
+  --notif-admin-bdr: rgba(251,113,133,0.35);
+  --notif-admin-txt: #fb7185;
+  --notif-kick-bg:   rgba(251,191,36,0.10);
+  --notif-kick-bdr:  rgba(251,191,36,0.30);
+  --notif-kick-txt:  #fbbf24;
+  --notif-sys-bg:    rgba(56,189,248,0.08);
+  --notif-sys-bdr:   rgba(56,189,248,0.25);
+  --notif-sys-txt:   #38bdf8;
+  --fh:'Outfit',sans-serif;
+  --fb:'Plus Jakarta Sans',sans-serif;
+  --grn:#34d399; --red:#fb7185;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:var(--fb);color:var(--txt);
+  background:var(--sky-zenith);
+  background-image:
+    radial-gradient(1px 1px at 15% 12%,rgba(255,255,255,.7) 0%,transparent 100%),
+    radial-gradient(1px 1px at 42% 8%, rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1px 1px at 68% 18%,rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(1px 1px at 88% 6%, rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1px 1px at 26% 25%,rgba(255,255,255,.3) 0%,transparent 100%),
+    radial-gradient(1px 1px at 75% 30%,rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1px 1px at 55% 5%, rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(ellipse 120% 60% at 50% 110%,rgba(14,164,233,.22) 0%,transparent 70%),
+    radial-gradient(ellipse 50% 80% at 0% 70%,  rgba(56,189,248,.10) 0%,transparent 60%),
+    radial-gradient(ellipse 40% 60% at 100% 60%, rgba(251,191,36,.07) 0%,transparent 55%),
+    linear-gradient(180deg,#03061a 0%,#071832 40%,#0d2545 70%,#0e3460 100%);
+}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(56,189,248,.25);border-radius:2px}
+.screen{display:none;height:100vh;width:100%}
+.screen.active{display:flex}
+
+/* TOAST */
+#toast{
+  position:fixed;bottom:28px;left:50%;
+  transform:translateX(-50%) translateY(80px);
+  padding:10px 24px;border-radius:100px;
+  font-size:12.5px;font-weight:600;
+  background:rgba(7,24,50,0.9);color:var(--txt);
+  border:1px solid var(--cloud-bdr);backdrop-filter:blur(20px);
+  z-index:9999;pointer-events:none;
+  transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s;
+  opacity:0;white-space:nowrap;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+#toast.err{background:rgba(251,113,133,.88);border-color:rgba(251,113,133,.4);color:#fff}
+#toast.ok{background:rgba(52,211,153,.88);border-color:rgba(52,211,153,.4);color:#000}
+
+
+
+/* LOGIN */
+#login-screen{align-items:center;justify-content:center;position:relative;overflow:hidden}
+#login-screen::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 60% 35% at 20% 30%,rgba(14,164,233,.15) 0%,transparent 70%),
+    radial-gradient(ellipse 50% 30% at 80% 70%,rgba(251,191,36,.08) 0%,transparent 70%),
+    radial-gradient(ellipse 40% 25% at 60% 20%,rgba(129,140,248,.12) 0%,transparent 70%);
+  animation:clouddrift 14s ease-in-out infinite alternate;
+}
+@keyframes clouddrift{from{opacity:.6;transform:translateX(-8px)}to{opacity:1;transform:translateX(8px)}}
+.lw{width:min(440px,96vw);animation:riseUp .6s cubic-bezier(.22,.68,0,1.2) both;position:relative;z-index:1}
+@keyframes riseUp{from{opacity:0;transform:translateY(30px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.ll{text-align:center;margin-bottom:26px}
+.lb{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:72px;height:72px;border-radius:24px;
+  background:linear-gradient(135deg,#0ea5e9,#38bdf8,#67e8f9);
+  font-size:32px;margin-bottom:14px;
+  box-shadow:0 0 0 1px rgba(56,189,248,.3),0 16px 48px rgba(14,164,233,.4),0 0 80px rgba(56,189,248,.15);
+  animation:logoFloat 4s ease-in-out infinite;
+}
+@keyframes logoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.ll h1{
+  font-family:var(--fh);font-size:34px;font-weight:800;letter-spacing:-.02em;
+  background:linear-gradient(135deg,#e0f2fe 20%,#38bdf8 60%,#67e8f9 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.ll p{color:var(--txt2);font-size:13px;margin-top:5px}
+.lcard{
+  background:rgba(7,24,50,0.65);border:1px solid var(--cloud-bdr2);
+  border-radius:28px;padding:32px 28px;
+  backdrop-filter:blur(24px);
+  box-shadow:0 0 0 1px rgba(56,189,248,.08),0 40px 100px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08);
+}
+.tpills{
+  display:flex;gap:5px;background:rgba(0,0,0,.3);
+  border-radius:14px;padding:5px;margin-bottom:22px;border:1px solid var(--cloud-bdr);
+}
+.tpill{
+  flex:1;padding:10px;border:none;border-radius:10px;cursor:pointer;
+  font-family:var(--fb);font-size:13px;font-weight:600;
+  background:transparent;color:var(--txt2);transition:all .2s;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.tpill.active{background:rgba(56,189,248,.15);color:var(--sky-cyan);border:1px solid rgba(56,189,248,.25);box-shadow:0 0 16px rgba(56,189,248,.1)}
+.lform{display:none}
+.lform.active{display:block}
+.fl{font-size:10.5px;font-weight:700;color:var(--txt2);margin-bottom:7px;text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:5px}
+.fi{
+  width:100%;padding:12px 15px;background:rgba(3,6,26,.5);
+  border:1px solid var(--cloud-bdr);border-radius:12px;color:var(--txt);
+  font-family:var(--fb);font-size:13.5px;outline:none;margin-bottom:13px;
+  transition:border-color .2s,box-shadow .2s,background .2s;backdrop-filter:blur(8px);
+}
+.fi:focus{border-color:rgba(56,189,248,.5);box-shadow:0 0 0 3px rgba(56,189,248,.12),0 0 20px rgba(56,189,248,.08);background:rgba(3,6,26,.7)}
+.fi::placeholder{color:var(--txt3)}
+textarea.fi{resize:none}
+.btn-main{
+  width:100%;padding:13px;
+  background:linear-gradient(135deg,#0ea5e9,#38bdf8);
+  border:none;border-radius:13px;color:#fff;
+  font-family:var(--fh);font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.03em;
+  box-shadow:0 8px 24px rgba(14,164,233,.4),0 0 0 1px rgba(56,189,248,.3);
+  transition:opacity .2s,transform .15s,box-shadow .2s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-main:hover{opacity:.92;transform:translateY(-2px);box-shadow:0 14px 36px rgba(14,164,233,.5)}
+.btn-main:active{transform:translateY(0)}
+.btn-main.loading{opacity:.55;pointer-events:none}
+
+/* MAINTENANCE */
+#maint-screen{flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px}
+.mi{font-size:72px;animation:spslow 6s linear infinite}
+@keyframes spslow{to{transform:rotate(360deg)}}
+#maint-screen h2{font-family:var(--fh);font-size:28px;font-weight:800}
+#maint-screen p{color:var(--txt2);max-width:320px;line-height:1.7}
+
+/* CHAT */
+#chat-screen{flex-direction:column}
+.ctop{
+  padding:13px 20px;background:rgba(5,15,35,.75);
+  border-bottom:1px solid var(--cloud-bdr);backdrop-filter:blur(20px);
+  display:flex;align-items:center;gap:12px;flex-shrink:0;
+  box-shadow:0 1px 0 rgba(56,189,248,.08);
+}
+.ctop-logo{display:flex;align-items:center;gap:9px;margin-right:4px}
+.ctop-logo-icon{
+  width:34px;height:34px;border-radius:10px;
+  background:linear-gradient(135deg,#0ea5e9,#38bdf8);
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;
+  box-shadow:0 0 16px rgba(14,164,233,.35);
+}
+.ctop-logo-name{
+  font-family:var(--fh);font-size:17px;font-weight:800;letter-spacing:-.01em;
+  background:linear-gradient(135deg,#e0f2fe,#38bdf8);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.cti{flex:1}
+.ctitle{font-family:var(--fh);font-weight:700;font-size:14px}
+.csub{font-size:11px;color:var(--txt2);display:flex;align-items:center;gap:5px;margin-top:2px}
+.ldot{width:7px;height:7px;border-radius:50%;background:var(--grn);animation:blink 2s infinite;display:inline-block;box-shadow:0 0 6px var(--grn)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.ubar{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.av{
+  width:32px;height:32px;border-radius:50%;background:var(--sky-grad);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--fh);font-weight:700;font-size:13px;
+  border:1.5px solid rgba(56,189,248,.3);
+}
+.av.adm{background:var(--dawn-grad);border-color:rgba(251,191,36,.4);box-shadow:0 0 12px rgba(251,191,36,.25)}
+.uname-top{font-weight:600;font-size:12.5px;color:var(--txt)}
+.ibtn{
+  width:30px;height:30px;border-radius:8px;border:1px solid var(--cloud-bdr);
+  background:transparent;color:var(--txt2);cursor:pointer;font-size:11px;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;
+}
+.ibtn:hover{background:var(--cloud-2);color:var(--txt);border-color:var(--cloud-bdr2)}
+.chat-wrap{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+#msgs{
+  flex:1;overflow-y:auto;padding:16px 14px;
+  display:flex;flex-direction:column;gap:4px;
+  max-width:820px;width:100%;margin:0 auto;align-self:center;box-sizing:border-box;
+}
+.msg{display:flex;animation:fadeUp .22s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg.me{justify-content:flex-end}
+.msg.you{justify-content:flex-start}
+.bub{max-width:72%;padding:10px 14px;border-radius:18px;font-size:13.5px;line-height:1.6;word-break:break-word}
+.msg.me .bub{
+  background:linear-gradient(135deg,#0ea5e9,#38bdf8);color:#fff;
+  border-bottom-right-radius:4px;box-shadow:0 4px 16px rgba(14,164,233,.3);
+}
+.msg.you .bub{
+  background:rgba(7,24,50,.65);border:1px solid var(--cloud-bdr);
+  backdrop-filter:blur(12px);border-bottom-left-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.2);
+}
+.sndr{font-size:11px;font-weight:700;color:var(--sky-cyan);display:block;margin-bottom:3px;letter-spacing:.02em}
+.abadge{
+  display:inline-flex;align-items:center;gap:3px;
+  background:var(--dawn-grad);padding:2px 7px;border-radius:5px;
+  font-size:9px;color:#fff;font-weight:700;vertical-align:middle;margin-left:5px;letter-spacing:.05em;
+  box-shadow:0 2px 8px rgba(251,191,36,.3);
+}
+.ts{font-size:10px;display:block;text-align:right;margin-top:5px;opacity:.5}
+
+
+/* ROBLOX NOTIFS */
+.msg-sys{display:flex;justify-content:center;animation:fadeUp .3s ease both;margin:8px 0}
+.sys-notif{
+  display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:100px;
+  font-size:12px;font-weight:700;letter-spacing:.03em;border:1px solid;
+  font-family:var(--fh);backdrop-filter:blur(12px);max-width:85%;
+  box-shadow:0 4px 20px rgba(0,0,0,.25);
+}
+.sys-notif.admin{background:var(--notif-admin-bg);border-color:var(--notif-admin-bdr);color:var(--notif-admin-txt);box-shadow:0 0 20px rgba(251,113,133,.15),0 4px 20px rgba(0,0,0,.25)}
+.sys-notif.kick{background:var(--notif-kick-bg);border-color:var(--notif-kick-bdr);color:var(--notif-kick-txt);box-shadow:0 0 20px rgba(251,191,36,.12),0 4px 20px rgba(0,0,0,.25)}
+.sys-notif.sys{background:var(--notif-sys-bg);border-color:var(--notif-sys-bdr);color:var(--notif-sys-txt);box-shadow:0 0 20px rgba(56,189,248,.10),0 4px 20px rgba(0,0,0,.25)}
+.sys-notif i{font-size:10px;flex-shrink:0}
+.sys-notif .sn-time{opacity:.55;font-size:10px;margin-left:3px;font-family:var(--fb);font-weight:400}
+
+/* INPUT BAR */
+.cbot{
+  padding:12px 14px;background:rgba(5,15,35,.75);border-top:1px solid var(--cloud-bdr);
+  backdrop-filter:blur(20px);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;
+  max-width:820px;width:100%;margin:0 auto;align-self:center;box-sizing:border-box;
+}
+.mta{
+  flex:1;background:rgba(3,6,26,.55);border:1px solid var(--cloud-bdr);border-radius:14px;
+  padding:10px 14px;color:var(--txt);font-family:var(--fb);font-size:13.5px;
+  outline:none;resize:none;min-height:42px;max-height:110px;line-height:1.5;
+  transition:border-color .2s,box-shadow .2s;backdrop-filter:blur(8px);
+}
+.mta:focus{border-color:rgba(56,189,248,.4);box-shadow:0 0 0 3px rgba(56,189,248,.08)}
+.mta::placeholder{color:var(--txt3)}
+.sbtn{
+  width:42px;height:42px;flex-shrink:0;border-radius:12px;border:none;
+  background:linear-gradient(135deg,#0ea5e9,#38bdf8);color:#fff;cursor:pointer;font-size:15px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 5px 18px rgba(14,164,233,.4);transition:opacity .2s,transform .15s;
+}
+.sbtn:hover{opacity:.88;transform:scale(1.07)}
+.imgbtn{
+  width:42px;height:42px;flex-shrink:0;border-radius:12px;
+  border:1px solid var(--cloud-bdr);background:rgba(3,6,26,.4);
+  color:var(--txt2);cursor:pointer;font-size:16px;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;
+}
+.imgbtn:hover{background:var(--cloud-2);color:var(--txt)}
+.btn-adm{
+  display:none;padding:8px 15px;background:var(--dawn-grad);border:none;border-radius:10px;
+  color:#fff;font-family:var(--fb);font-size:12.5px;font-weight:700;cursor:pointer;
+  align-items:center;gap:6px;transition:opacity .2s;flex-shrink:0;
+  box-shadow:0 4px 14px rgba(251,191,36,.3);
+}
+.btn-adm:hover{opacity:.88}
+.btn-adm.vis{display:flex}
+
+/* ADMIN */
+#admin-screen{flex-direction:column}
+.atop{
+  padding:14px 22px;background:rgba(5,15,35,.8);border-bottom:1px solid var(--cloud-bdr);
+  backdrop-filter:blur(20px);display:flex;align-items:center;gap:14px;flex-shrink:0;
+}
+.atop h2{font-family:var(--fh);font-size:20px;font-weight:800;flex:1}
+.atop h2 span{background:var(--dawn-grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.anav{display:flex;padding:0 18px;background:rgba(5,15,35,.7);border-bottom:1px solid var(--cloud-bdr);flex-shrink:0;backdrop-filter:blur(20px)}
+.navb{
+  padding:13px 17px;border:none;background:transparent;color:var(--txt2);
+  font-family:var(--fb);font-size:13px;font-weight:600;cursor:pointer;
+  border-bottom:2px solid transparent;transition:all .2s;display:flex;align-items:center;gap:7px;
+}
+.navb.active{color:var(--sky-blue);border-bottom-color:var(--sky-blue)}
+.abody{flex:1;overflow-y:auto;padding:22px}
+.atab{display:none;max-width:760px;margin:0 auto}
+.atab.active{display:block}
+.ac{
+  background:rgba(7,24,50,.6);border:1px solid var(--cloud-bdr);border-radius:20px;
+  padding:22px;margin-bottom:18px;backdrop-filter:blur(16px);
+  box-shadow:0 0 0 1px rgba(56,189,248,.05),0 8px 32px rgba(0,0,0,.2);
+}
+.ac h3{font-family:var(--fh);font-weight:700;font-size:15px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.ac h3 i{color:var(--sky-blue)}
+.btn-acc{
+  padding:11px 22px;background:var(--sky-grad);border:none;border-radius:11px;
+  color:#fff;font-family:var(--fh);font-size:14px;font-weight:700;cursor:pointer;transition:opacity .2s;
+  display:inline-flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(14,164,233,.35);
+}
+.btn-acc:hover{opacity:.88}
+.btn-back{
+  padding:9px 16px;background:var(--cloud-1);border:1px solid var(--cloud-bdr);border-radius:10px;
+  color:var(--txt);font-family:var(--fb);font-size:13px;cursor:pointer;
+  display:flex;align-items:center;gap:7px;transition:all .2s;
+}
+.btn-back:hover{background:var(--cloud-2)}
+.btn-del{padding:7px 11px;background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.25);border-radius:8px;color:var(--red);font-size:12px;cursor:pointer;transition:all .2s}
+.btn-del:hover{background:rgba(251,113,133,.2)}
+.ali{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:rgba(3,6,26,.4);border:1px solid var(--cloud-bdr);border-radius:12px;margin-bottom:7px;
+}
+.alii{flex:1;min-width:0}
+.alii b{font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt)}
+.alii small{font-size:11px;color:var(--txt2)}
+.trow{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--cloud-bdr)}
+.trow:last-child{border-bottom:none}
+.trifo h4{font-weight:600;font-size:14px}
+.trifo p{font-size:12px;color:var(--txt2);margin-top:3px}
+.tsw{position:relative;width:50px;height:26px}
+.tsw input{opacity:0;width:0;height:0}
+.tsl{position:absolute;cursor:pointer;inset:0;background:rgba(3,6,26,.6);border-radius:13px;transition:.3s;border:1px solid var(--cloud-bdr)}
+.tsl::before{content:"";position:absolute;width:20px;height:20px;left:2px;top:2px;background:var(--txt2);border-radius:50%;transition:.3s}
+.tsw input:checked+.tsl{background:var(--sky-blue2);border-color:var(--sky-blue)}
+.tsw input:checked+.tsl::before{transform:translateX(24px);background:#fff}
+.infobox{background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.18);border-radius:13px;padding:16px;font-size:13px;color:var(--txt2);line-height:1.7}
+.notif-type-sel{display:flex;gap:7px;margin-bottom:14px}
+.ntype{
+  flex:1;padding:10px 6px;border:1px solid var(--cloud-bdr);border-radius:11px;
+  background:rgba(3,6,26,.4);color:var(--txt2);cursor:pointer;font-size:12px;font-weight:700;
+  font-family:var(--fh);transition:all .2s;text-align:center;line-height:1.5;
+}
+.ntype:hover{border-color:var(--sky-blue);color:var(--txt)}
+.ntype.sel-admin{border-color:var(--notif-admin-bdr)!important;background:var(--notif-admin-bg)!important;color:var(--notif-admin-txt)!important}
+.ntype.sel-kick{border-color:var(--notif-kick-bdr)!important;background:var(--notif-kick-bg)!important;color:var(--notif-kick-txt)!important}
+.ntype.sel-sys{border-color:var(--notif-sys-bdr)!important;background:var(--notif-sys-bg)!important;color:var(--notif-sys-txt)!important}
+.nodata{color:var(--txt2);font-size:12px;text-align:center;padding:22px 0}
+@media(max-width:600px){
+  .ctop{padding:10px 12px;gap:8px}
+  .cbot{padding:10px 8px}
+  #msgs{padding:10px 8px}
+  .ctop-logo-name,.uname-top,.cti{display:none}
+}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+
+
+<!-- LOGIN -->
+<div id="login-screen" class="screen active">
+  <div class="lw">
+    <div class="ll">
+      <div class="lb">☁️</div>
+      <h1>SkyChat</h1>
+      <p>Real-time global chat · Open skies, open voices</p>
+    </div>
+    <div class="lcard">
+      <div class="tpills">
+        <button class="tpill active" id="pl-mem" onclick="switchTab('member')"><i class="fas fa-user"></i> Member</button>
+        <button class="tpill" id="pl-adm" onclick="switchTab('admin')"><i class="fas fa-shield-halved"></i> Admin</button>
+      </div>
+      <div class="lform active" id="lf-member">
+        <div class="fl"><i class="fas fa-user" style="color:var(--sky-blue)"></i> Nama Kamu</div>
+        <input id="mname" class="fi" type="text" placeholder="Masukkan nama..." maxlength="20" autocomplete="off">
+        <button class="btn-main" onclick="loginMember()"><i class="fas fa-arrow-right-to-bracket"></i> Masuk ke Chat</button>
+      </div>
+      <div class="lform" id="lf-admin">
+        <div class="fl"><i class="fas fa-envelope" style="color:var(--sky-blue)"></i> Email Admin</div>
+        <input id="amail" class="fi" type="email" placeholder="admin@skychat.com" autocomplete="off">
+        <div class="fl"><i class="fas fa-lock" style="color:var(--sky-blue)"></i> Password</div>
+        <input id="apass" class="fi" type="password" placeholder="Password...">
+        <button class="btn-main" id="btn-alog" onclick="loginAdmin()"><i class="fas fa-lock"></i> Login Admin</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAINTENANCE -->
+<div id="maint-screen" class="screen">
+  <div class="mi">🔧</div>
+  <h2>Server Maintenance</h2>
+  <p>Kami sedang melakukan pemeliharaan. Harap bersabar dan coba lagi nanti.</p>
+  <button class="btn-back" style="margin-top:22px" onclick="logout()"><i class="fas fa-arrow-left"></i> Kembali ke Login</button>
+</div>
+
+<!-- CHAT -->
+<div id="chat-screen" class="screen">
+  <div class="ctop">
+    <div class="ctop-logo">
+      <div class="ctop-logo-icon">☁️</div>
+      <span class="ctop-logo-name">SkyChat</span>
+    </div>
+    <div class="cti">
+      <div class="ctitle">🌐 Global Chat</div>
+      <div class="csub"><span class="ldot"></span> Live · semua terhubung</div>
+    </div>
+    <div class="ubar">
+      <div class="av" id="cav">U</div>
+      <span class="uname-top" id="cuname">User</span>
+      <button class="ibtn" title="Ganti Nama" onclick="changeName()"><i class="fas fa-pen"></i></button>
+      <button class="ibtn" title="Logout" onclick="logout()"><i class="fas fa-right-from-bracket"></i></button>
+    </div>
+    <button class="btn-adm" id="btn-adm" onclick="openAdmin()"><i class="fas fa-shield-halved"></i> Admin</button>
+  </div>
+  <div class="chat-wrap">
+    <div id="msgs"></div>
+    <div class="cbot">
+      <textarea id="mta" class="mta" placeholder="Ketik pesan... (Enter kirim)" rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"
+        oninput="autoH(this)"></textarea>
+      <button class="sbtn" onclick="sendMsg()"><i class="fas fa-paper-plane"></i></button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="admin-screen" class="screen">
+  <div class="atop">
+    <span style="font-size:22px">⚡</span>
+    <h2><span>Admin</span> Panel</h2>
+    <button class="btn-back" onclick="goChat()"><i class="fas fa-arrow-left"></i> Kembali</button>
+  </div>
+  <div class="anav">
+    <button class="navb active" id="nb-notif" onclick="adminTab('notif')"><i class="fas fa-bell"></i> Notifikasi</button>
+    <button class="navb" id="nb-mnt" onclick="adminTab('mnt')"><i class="fas fa-wrench"></i> Maintenance</button>
+  </div>
+  <div class="abody">
+    <div class="atab active" id="at-notif">
+      <div class="ac">
+        <h3><i class="fas fa-bell"></i> Kirim Notifikasi Sistem</h3>
+        <div class="fl">Tipe</div>
+        <div class="notif-type-sel">
+          <button class="ntype" id="nt-admin" onclick="selectNotifType('admin')"><i class="fas fa-skull-crossbones"></i><br>Admin Abuse</button>
+          <button class="ntype" id="nt-kick"  onclick="selectNotifType('kick')"><i class="fas fa-ban"></i><br>Kick / Warn</button>
+          <button class="ntype" id="nt-sys"   onclick="selectNotifType('sys')"><i class="fas fa-circle-info"></i><br>System Info</button>
+        </div>
+        <div class="fl">Pesan</div>
+        <input id="notif-msg" class="fi" type="text" placeholder="Tulis isi notifikasi..." maxlength="120">
+        <div id="notif-preview" style="margin-bottom:14px;display:none">
+          <div class="fl">Preview</div>
+          <div class="msg-sys" id="notif-preview-inner"></div>
+        </div>
+        <button class="btn-acc" onclick="sendSysNotif()"><i class="fas fa-paper-plane"></i> Kirim Notif</button>
+      </div>
+      <div class="ac">
+        <h3><i class="fas fa-list"></i> Riwayat Notifikasi</h3>
+        <div id="adm-notif-list"><p class="nodata">Belum ada notifikasi</p></div>
+      </div>
+    </div>
+    <div class="atab" id="at-mnt">
+      <div class="ac">
+        <h3><i class="fas fa-server"></i> Pengaturan Server</h3>
+        <div class="trow">
+          <div class="trifo">
+            <h4>🔧 Maintenance Mode</h4>
+            <p>Aktifkan untuk memblokir semua member. Admin tetap bisa mengakses.</p>
+          </div>
+          <label class="tsw"><input type="checkbox" id="maint-tog" onchange="setMaint(this.checked)"><span class="tsl"></span></label>
+        </div>
+      </div>
+      <div class="infobox"><strong style="color:var(--dawn-gold)">⚠ Catatan:</strong> Saat maintenance aktif, member yang sudah login akan otomatis diarahkan ke halaman maintenance. Member baru tidak bisa masuk. Admin tetap memiliki akses penuh ke panel dan chat.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCeXbgxJ-OWZWmCdVKtaM4g3HxyV8XXGbQ",
+  authDomain: "sky-chat-by-ditzz.firebaseapp.com",
+  databaseURL: "https://sky-chat-by-ditzz-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "sky-chat-by-ditzz",
+  storageBucket: "sky-chat-by-ditzz.firebasestorage.app",
+  messagingSenderId: "233503046207",
+  appId: "1:233503046207:web:9fc5b8ee965d3930a9168a"
+};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database(), auth=firebase.auth();
+var me=null,meAdm=false,maintMode=false,msgOn=false,selectedNotifType="sys";
+
+function toast(msg,type){var el=document.getElementById("toast");el.textContent=msg;el.className="show"+(type==="err"?" err":type==="ok"?" ok":"");clearTimeout(el._t);el._t=setTimeout(function(){el.className="";},3200);}
+function fT(ts){return ts?new Date(ts).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}):""}
+function fD(ts){return ts?new Date(ts).toLocaleDateString("id-ID",{day:"numeric",month:"short",year:"numeric"}):""}
+function esc(t){return t?String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""}
+function autoH(ta){ta.style.height="auto";ta.style.height=Math.min(ta.scrollHeight,110)+"px";}
+
+function show(id){document.querySelectorAll(".screen").forEach(function(s){s.classList.remove("active");});document.getElementById(id).classList.add("active");document.getElementById("btn-adm").classList.toggle("vis",id==="chat-screen"&&meAdm);}
+
+db.ref("settings/maintenance").on("value",function(snap){maintMode=snap.val()===true;var tog=document.getElementById("maint-tog");if(tog)tog.checked=maintMode;if(maintMode&&me&&!meAdm)show("maint-screen");else if(!maintMode&&document.getElementById("maint-screen").classList.contains("active"))show("chat-screen");});
+
+function switchTab(t){["member","admin"].forEach(function(x){document.getElementById("pl-"+(x==="member"?"mem":"adm")).classList.toggle("active",x===t);document.getElementById("lf-"+x).classList.toggle("active",x===t);});}
+
+function loginMember(){var name=document.getElementById("mname").value.trim();if(!name){toast("Masukkan nama kamu!","err");return;}if(name.length>20){toast("Nama maks 20 karakter!","err");return;}me=name;meAdm=false;setUserUI(name,false);if(maintMode){show("maint-screen");return;}show("chat-screen");startChat();toast("Selamat datang, "+name+"! 👋","ok");}
+
+function loginAdmin(){
+  var email=document.getElementById("amail").value.trim();
+  var pass=document.getElementById("apass").value;
+  if(!email||!pass){toast("Isi email & password!","err");return;}
+  var btn=document.getElementById("btn-alog");
+  btn.classList.add("loading");btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Memeriksa...';
+  auth.signInWithEmailAndPassword(email,pass)
+    .then(function(cred){
+      btn.classList.remove("loading");btn.innerHTML='<i class="fas fa-lock"></i> Login Admin';
+      return db.ref("admins/"+cred.user.uid).once("value").then(function(snap){
+        if(!snap.exists()){auth.signOut();toast("Akun tidak terdaftar sebagai admin!","err");return;}
+        var data=snap.val();me=data.displayName||email.split("@")[0];meAdm=true;
+        setUserUI(me,true);show("chat-screen");startChat();toast("Login admin berhasil! ⚡","ok");
+      });
+    }).catch(function(err){
+      btn.classList.remove("loading");btn.innerHTML='<i class="fas fa-lock"></i> Login Admin';
+      var msg="Login gagal!";
+      if(err.code==="auth/wrong-password"||err.code==="auth/invalid-credential")msg="Password salah!";
+      else if(err.code==="auth/user-not-found")msg="Email tidak ditemukan!";
+      else if(err.code==="auth/invalid-email")msg="Format email tidak valid!";
+      else if(err.code==="auth/too-many-requests")msg="Terlalu banyak percobaan!";
+      toast(msg,"err");document.getElementById("apass").value="";
+    });
+}
+
+function setUserUI(name,isAdm){document.getElementById("cuname").textContent=isAdm?"⚡ "+name:name;var av=document.getElementById("cav");av.textContent=name.charAt(0).toUpperCase();av.className="av"+(isAdm?" adm":"");}
+function logout(){if(meAdm)auth.signOut().catch(function(){});me=null;meAdm=false;msgOn=false;document.getElementById("mname").value="";document.getElementById("amail").value="";document.getElementById("apass").value="";document.getElementById("msgs").innerHTML="";show("login-screen");toast("Sampai jumpa! 👋");}
+function changeName(){if(!me||meAdm)return;var n=prompt("Ganti nama kamu:",me);if(n&&n.trim()){if(n.trim().length>20){toast("Nama maks 20 karakter!","err");return;}me=n.trim();setUserUI(me,false);toast("Nama berhasil diganti! ✨","ok");}}
+function startChat(){if(!msgOn){msgOn=true;listenMsgs();}listenSysNotifLog();}
+function listenMsgs(){db.ref("messages").limitToLast(120).on("child_added",function(snap){var v=snap.val();if(v.type==="sys")appendSysMsg(v);else appendMsg(v);});}
+
+function appendMsg(msg){
+  var wrap=document.getElementById("msgs");var isSelf=msg.sender===me;
+  var div=document.createElement("div");div.className="msg "+(isSelf?"me":"you");
+  var body='<p>'+esc(msg.text)+'</p>';
+  div.innerHTML='<div class="bub">'+(!isSelf?'<span class="sndr">'+esc(msg.sender)+(msg.isAdmin?'<span class="abadge"><i class="fas fa-shield-halved"></i> Admin</span>':'')+'</span>':'')+body+'<span class="ts">'+fT(msg.timestamp)+'</span></div>';
+  wrap.appendChild(div);wrap.scrollTop=wrap.scrollHeight;
+}
+
+function notifIcon(type){if(type==="admin")return"fas fa-skull-crossbones";if(type==="kick")return"fas fa-ban";return"fas fa-circle-info";}
+function appendSysMsg(msg){
+  var wrap=document.getElementById("msgs");var type=msg.notifType||"sys";
+  var div=document.createElement("div");div.className="msg-sys";
+  div.innerHTML='<div class="sys-notif '+type+'"><i class="'+notifIcon(type)+'"></i><span>'+esc(msg.text)+'</span><span class="sn-time">'+fT(msg.timestamp)+'</span></div>';
+  wrap.appendChild(div);wrap.scrollTop=wrap.scrollHeight;
+}
+
+function listenSysNotifLog(){
+  db.ref("sysnotifs").limitToLast(30).on("value",function(snap){
+    var list=document.getElementById("adm-notif-list");if(!list)return;
+    list.innerHTML="";if(!snap||!snap.exists()){list.innerHTML='<p class="nodata">Belum ada notifikasi</p>';return;}
+    var items=[];snap.forEach(function(c){items.push(Object.assign({key:c.key},c.val()));});
+    items.reverse().forEach(function(n){
+      var d=document.createElement("div");d.className="ali";
+      var lbl=n.notifType==="admin"?"Admin Abuse":n.notifType==="kick"?"Kick/Warn":"System";
+      d.innerHTML='<div class="alii"><b>'+esc(n.text)+'</b><small>'+lbl+' · '+fD(n.timestamp)+'</small></div>'+'<button class="btn-del" onclick="delNotif(\''+n.key+'\')"><i class="fas fa-trash"></i></button>';
+      list.appendChild(d);
+    });
+  });
+}
+
+function delNotif(key){if(!confirm("Hapus notifikasi ini?"))return;db.ref("sysnotifs/"+key).remove().then(function(){toast("Dihapus!");});}
+
+function selectNotifType(type){selectedNotifType=type;["admin","kick","sys"].forEach(function(t){var el=document.getElementById("nt-"+t);el.className="ntype";if(t===type)el.classList.add("sel-"+t);});updateNotifPreview();}
+function updateNotifPreview(){var msg=document.getElementById("notif-msg").value.trim();var prev=document.getElementById("notif-preview");var inner=document.getElementById("notif-preview-inner");if(!msg){prev.style.display="none";return;}prev.style.display="block";inner.innerHTML='<div class="sys-notif '+selectedNotifType+'"><i class="'+notifIcon(selectedNotifType)+'"></i><span>'+esc(msg)+'</span></div>';}
+document.getElementById("notif-msg").addEventListener("input",updateNotifPreview);
+
+function sendSysNotif(){var msg=document.getElementById("notif-msg").value.trim();if(!msg){toast("Tulis pesan notifikasi!","err");return;}var payload={type:"sys",notifType:selectedNotifType,text:msg,sender:me,timestamp:Date.now()};db.ref("messages").push(payload).then(function(){return db.ref("sysnotifs").push(payload);}).then(function(){document.getElementById("notif-msg").value="";document.getElementById("notif-preview").style.display="none";toast("Notifikasi terkirim! 🔔","ok");}).catch(function(){toast("Gagal kirim notif!","err");});}
+
+function sendMsg(){if(!me)return;if(maintMode&&!meAdm){toast("Server maintenance!","err");return;}var ta=document.getElementById("mta");var txt=ta.value.trim();if(!txt)return;db.ref("messages").push({sender:me,text:txt,timestamp:Date.now(),isAdmin:meAdm});ta.value="";ta.style.height="auto";}
+
+
+
+function setMaint(val){db.ref("settings/maintenance").set(val).then(function(){toast(val?"🔧 Maintenance ON":"✅ Maintenance OFF",val?"":"ok");});}
+function openAdmin(){if(!meAdm)return;show("admin-screen");adminTab("notif");}
+function goChat(){show("chat-screen");}
+function adminTab(t){["notif","mnt"].forEach(function(x){document.getElementById("nb-"+x).classList.toggle("active",x===t);document.getElementById("at-"+x).classList.toggle("active",x===t);});}
+
+document.getElementById("mname").addEventListener("keydown",function(e){if(e.key==="Enter")loginMember();});
+document.getElementById("apass").addEventListener("keydown",function(e){if(e.key==="Enter")loginAdmin();});
+selectNotifType("sys");
+</script>
+</body>
+</html>
