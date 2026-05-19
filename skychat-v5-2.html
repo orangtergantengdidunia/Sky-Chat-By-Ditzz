@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>SkyChat</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<style>
+:root{
+  --bg:#03061a;--mid:#071832;--hor:#0d2545;
+  --bdr:rgba(255,255,255,.10);--bdr2:rgba(255,255,255,.18);
+  --b1:rgba(255,255,255,.05);--b2:rgba(255,255,255,.08);
+  --sky:#38bdf8;--sky2:#0ea5e9;--cyan:#67e8f9;
+  --gold:#fbbf24;--ora:#f97316;--red:#fb7185;--grn:#34d399;
+  --txt:#e0f2fe;--txt2:#7eb8d4;--txt3:#3b82a0;
+  --sg:linear-gradient(135deg,#0ea5e9,#38bdf8);
+  --dg:linear-gradient(135deg,#fbbf24,#f97316,#fb7185);
+  --fh:'Outfit',sans-serif;--fb:'Plus Jakarta Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--fb);color:var(--txt);background:var(--bg);
+  background-image:
+    radial-gradient(1px 1px at 20% 10%,rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(1px 1px at 60% 15%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(ellipse 120% 60% at 50% 110%,rgba(14,164,233,.2) 0%,transparent 70%),
+    linear-gradient(180deg,#03061a 0%,#071832 50%,#0e3460 100%);}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:rgba(56,189,248,.2);border-radius:2px}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* SCREENS */
+.screen{display:none;position:fixed;inset:0}
+.screen.active{display:flex}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(70px);padding:9px 22px;border-radius:100px;font-size:12.5px;font-weight:600;background:rgba(7,24,50,.99);color:var(--txt);border:1px solid var(--bdr);z-index:9999;pointer-events:none;transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;white-space:nowrap}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+#toast.err{background:rgba(251,113,133,.9);color:#fff}
+#toast.ok{background:rgba(52,211,153,.9);color:#000}
+
+/* WARN/BAN SPLASH */
+#penalty-splash{display:none;position:fixed;inset:0;z-index:99999;background:rgba(3,6,26,.97);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);flex-direction:column;align-items:center;justify-content:center;gap:0;text-align:center;padding:24px;animation:splashIn .4s cubic-bezier(.22,.68,0,1.2)}
+#penalty-splash.show{display:flex}
+@keyframes splashIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+.splash-icon{font-size:72px;margin-bottom:16px;filter:drop-shadow(0 0 32px currentColor);animation:iconPulse 2s ease-in-out infinite}
+@keyframes iconPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.splash-icon.warn-icon{color:var(--gold)}
+.splash-icon.ban-icon{color:var(--red)}
+.splash-title{font-family:var(--fh);font-size:26px;font-weight:800;margin-bottom:8px}
+.splash-title.warn-title{background:linear-gradient(135deg,#fbbf24,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.splash-title.ban-title{background:linear-gradient(135deg,#fb7185,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.splash-reason{font-size:13.5px;color:var(--txt2);max-width:300px;line-height:1.7;margin-bottom:24px;background:rgba(255,255,255,.04);border:1px solid var(--bdr);border-radius:12px;padding:10px 16px}
+.splash-countdown-box{background:rgba(7,24,50,.95);border:1px solid var(--bdr2);border-radius:20px;padding:20px 32px;margin-bottom:20px}
+.splash-countdown-label{font-size:11px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+.splash-countdown{font-family:var(--fh);font-size:42px;font-weight:800;letter-spacing:2px;line-height:1}
+.splash-countdown.warn-cd{color:var(--gold)}
+.splash-countdown.ban-cd{color:var(--red)}
+.splash-sub{font-size:11.5px;color:var(--txt3);margin-top:6px}
+.splash-progress{width:240px;height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-bottom:20px}
+#splash-prog-fill{height:100%;border-radius:2px;transition:width 1s linear}
+.splash-prog-warn{background:linear-gradient(90deg,#fbbf24,#f97316)}
+.splash-prog-ban{background:linear-gradient(90deg,#fb7185,#f97316)}
+
+/* CONTEXT MENU */
+#ctx-menu{position:fixed;z-index:9998;background:rgba(7,24,50,.98);border:1px solid rgba(56,189,248,.25);border-radius:13px;padding:6px;min-width:170px;box-shadow:0 8px 32px rgba(0,0,0,.6);display:none;animation:fadeIn .15s ease}
+#ctx-menu.show{display:block}
+@keyframes fadeIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.ctx-item{display:flex;align-items:center;gap:9px;padding:9px 13px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;transition:background .15s;color:var(--txt)}
+.ctx-item:hover{background:rgba(56,189,248,.1)}
+.ctx-item.danger{color:var(--red)}
+.ctx-item.danger:hover{background:rgba(251,113,133,.1)}
+.ctx-item i{width:14px;text-align:center;font-size:11px}
+.ctx-sep{height:1px;background:var(--bdr);margin:4px 0}
+
+/* ANNOUNCEMENT POPUP */
+#ann-popup{display:flex;position:fixed;top:0;left:0;right:0;z-index:9997;align-items:flex-start;justify-content:center;padding:16px;pointer-events:none;opacity:0;transform:translateY(-18px);transition:opacity .3s,transform .3s cubic-bezier(.22,.68,0,1.2)}
+#ann-popup.on{opacity:1;transform:translateY(0)}
+#ann-box{background:rgba(7,24,50,.99);border:1px solid rgba(56,189,248,.4);border-radius:18px;padding:20px 24px;max-width:400px;width:100%;pointer-events:none;text-align:center}
+#ann-box .ai{font-size:28px;margin-bottom:8px}
+#ann-box .at{font-family:var(--fh);font-size:14px;font-weight:800;color:var(--cyan);margin-bottom:6px}
+#ann-box .am{font-size:13px;color:var(--txt);line-height:1.6;margin-bottom:12px}
+#ann-box .ab{height:3px;background:rgba(56,189,248,.15);border-radius:2px;overflow:hidden}
+#ann-bar-fill{height:100%;background:var(--sg);border-radius:2px;width:100%;transition:none}
+
+/* LOGIN */
+#login-screen{align-items:center;justify-content:center;overflow-y:auto}
+.lw{width:min(430px,95vw);padding:20px 0}
+.ll{text-align:center;margin-bottom:22px}
+.lb{display:inline-flex;align-items:center;justify-content:center;width:68px;height:68px;border-radius:22px;background:var(--sg);font-size:30px;margin-bottom:12px;box-shadow:0 0 0 1px rgba(56,189,248,.3),0 14px 40px rgba(14,164,233,.4);animation:lf 4s ease-in-out infinite}
+@keyframes lf{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ll h1{font-family:var(--fh);font-size:32px;font-weight:800;background:linear-gradient(135deg,#e0f2fe,#38bdf8,#67e8f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.ll p{color:var(--txt2);font-size:12.5px;margin-top:4px}
+.lcard{background:rgba(7,24,50,.92);border:1px solid var(--bdr2);border-radius:26px;padding:28px 24px;box-shadow:0 36px 80px rgba(0,0,0,.5)}
+.tpills{display:flex;gap:4px;background:rgba(0,0,0,.3);border-radius:12px;padding:4px;margin-bottom:20px;border:1px solid var(--bdr)}
+.tpill{flex:1;padding:9px;border:none;border-radius:9px;cursor:pointer;font-family:var(--fb);font-size:12.5px;font-weight:600;background:transparent;color:var(--txt2);transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px}
+.tpill.active{background:rgba(56,189,248,.15);color:var(--cyan);border:1px solid rgba(56,189,248,.25)}
+.lform{display:none}.lform.active{display:block}
+.fl{font-size:10px;font-weight:700;color:var(--txt2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:4px}
+.fi{width:100%;padding:11px 14px;background:rgba(3,6,26,.85);border:1px solid var(--bdr);border-radius:11px;color:var(--txt);font-family:var(--fb);font-size:13px;outline:none;margin-bottom:12px;transition:border-color .2s}
+.fi:focus{border-color:rgba(56,189,248,.5);box-shadow:0 0 0 3px rgba(56,189,248,.1)}
+.fi::placeholder{color:var(--txt3)}
+textarea.fi{resize:none}
+.btn-main{width:100%;padding:12px;background:var(--sg);border:none;border-radius:12px;color:#fff;font-family:var(--fh);font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 7px 22px rgba(14,164,233,.4);transition:opacity .2s,transform .15s;display:flex;align-items:center;justify-content:center;gap:7px}
+.btn-main:hover{opacity:.9;transform:translateY(-1px)}
+.btn-main.loading{opacity:.55;pointer-events:none}
+
+/* MAINTENANCE */
+#maint-screen{flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px}
+#maint-screen .mi{font-size:64px;animation:sp 6s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#maint-screen h2{font-family:var(--fh);font-size:26px;font-weight:800}
+#maint-screen p{color:var(--txt2);max-width:300px;line-height:1.7;font-size:13px}
+
+/* CHAT SCREEN */
+#chat-screen{flex-direction:column}
+.ctop{padding:11px 14px;background:rgba(5,15,35,.98);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.clogo{display:flex;align-items:center;gap:7px}
+.clogo-i{width:30px;height:30px;border-radius:9px;background:var(--sg);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.clogo-n{font-family:var(--fh);font-size:15px;font-weight:800;background:linear-gradient(135deg,#e0f2fe,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.cinfo{flex:1;min-width:0}
+.ctitle{font-family:var(--fh);font-weight:700;font-size:13px}
+.csub{font-size:10.5px;color:var(--txt2);display:flex;align-items:center;gap:4px;margin-top:1px}
+.ldot{width:6px;height:6px;border-radius:50%;background:var(--grn);display:inline-block;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.ubar{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.av{width:28px;height:28px;border-radius:50%;background:var(--sg);display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-weight:700;font-size:11px;border:1.5px solid rgba(56,189,248,.3);flex-shrink:0}
+.av.adm{background:var(--dg);border-color:rgba(251,191,36,.4)}
+.ub-name{font-weight:600;font-size:11.5px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ibtn{width:27px;height:27px;border-radius:7px;border:1px solid var(--bdr);background:transparent;color:var(--txt2);cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.ibtn:hover{background:var(--b2);color:var(--txt)}
+.btn-adm{padding:6px 10px;background:var(--dg);border:none;border-radius:8px;color:#fff;font-family:var(--fb);font-size:11px;font-weight:700;cursor:pointer;display:none;align-items:center;gap:4px}
+.btn-adm.vis{display:flex}
+
+/* ADMIN-ONLY MODE BANNER */
+#admin-only-banner{display:none;flex-shrink:0;background:rgba(251,191,36,.1);border-top:1px solid rgba(251,191,36,.3);border-bottom:1px solid rgba(251,191,36,.3);padding:7px 14px;align-items:center;justify-content:center;gap:8px;font-size:12px;font-weight:700;color:var(--gold);font-family:var(--fh)}
+#admin-only-banner.show{display:flex}
+
+/* CHAT BODY */
+.chat-body{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+#msgs{flex:1;overflow-y:auto;padding:12px 10px;display:flex;flex-direction:column;gap:3px;min-height:0}
+.msg{display:flex;animation:fu .2s ease both;position:relative}
+@keyframes fu{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.msg.me{justify-content:flex-end}
+.msg.you{justify-content:flex-start}
+.bub{max-width:76%;padding:8px 12px;border-radius:17px;font-size:13px;line-height:1.6;word-break:break-word;position:relative;cursor:pointer;transition:opacity .15s}
+.bub:active{opacity:.8}
+.msg.me .bub{background:var(--sg);color:#fff;border-bottom-right-radius:4px;box-shadow:0 3px 12px rgba(14,164,233,.3)}
+.msg.you .bub{background:rgba(7,24,50,.92);border:1px solid var(--bdr);border-bottom-left-radius:4px}
+.sndr{font-size:10.5px;font-weight:700;color:var(--cyan);display:block;margin-bottom:2px}
+.abadge{display:inline-flex;align-items:center;gap:3px;background:var(--dg);padding:1px 5px;border-radius:4px;font-size:8.5px;color:#fff;font-weight:700;vertical-align:middle;margin-left:4px}
+.ts{font-size:9.5px;display:block;text-align:right;margin-top:3px;opacity:.45}
+/* deleted message style */
+.msg-deleted .bub{background:rgba(7,24,50,.5)!important;border:1px dashed rgba(255,255,255,.1)!important;box-shadow:none!important;cursor:default}
+.del-text{font-size:12px;color:var(--txt3);font-style:italic;display:flex;align-items:center;gap:5px}
+/* warn/kick pills in chat */
+.msg-sys{display:flex;justify-content:center;animation:fu .3s ease both;margin:5px 0}
+.sys-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 13px;border-radius:100px;font-size:11.5px;font-weight:700;font-family:var(--fh);max-width:93%;border:1px solid}
+.sys-pill.warn{background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.3);color:#fbbf24}
+.sys-pill.kick{background:rgba(251,113,133,.08);border-color:rgba(251,113,133,.3);color:#fb7185}
+.sys-pill i{font-size:9px;flex-shrink:0}
+.sn-time{opacity:.5;font-size:9.5px;margin-left:2px;font-family:var(--fb);font-weight:400}
+
+/* char counter */
+.chat-input-wrap{position:relative}
+#char-count{position:absolute;right:52px;bottom:18px;font-size:10px;color:var(--txt3);pointer-events:none;transition:color .2s}
+#char-count.warn{color:var(--ora)}
+#char-count.danger{color:var(--red)}
+
+/* INPUT BAR */
+.cbot{padding:9px 10px;background:rgba(5,15,35,.98);border-top:1px solid var(--bdr);display:flex;gap:7px;align-items:flex-end;flex-shrink:0;position:relative}
+.mta{flex:1;background:rgba(3,6,26,.85);border:1px solid var(--bdr);border-radius:12px;padding:9px 38px 9px 12px;color:var(--txt);font-family:var(--fb);font-size:13px;outline:none;resize:none;min-height:40px;max-height:96px;line-height:1.5;transition:border-color .2s}
+.mta:focus{border-color:rgba(56,189,248,.4)}
+.mta::placeholder{color:var(--txt3)}
+.mta:disabled{opacity:.45;cursor:not-allowed}
+.sbtn{width:38px;height:38px;flex-shrink:0;border-radius:10px;border:none;background:var(--sg);color:#fff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(14,164,233,.4);transition:opacity .2s,transform .15s}
+.sbtn:hover{opacity:.88;transform:scale(1.06)}
+.sbtn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+
+/* RESET BANNER */
+#reset-banner{display:none;flex-shrink:0;background:rgba(14,164,233,.12);border-top:1px solid rgba(56,189,248,.25);border-bottom:1px solid rgba(56,189,248,.25);padding:8px 14px;align-items:center;justify-content:center;gap:10px;font-size:12px;font-weight:700;color:var(--cyan);font-family:var(--fh)}
+#reset-banner.show{display:flex}
+#reset-timer{font-size:14px;font-weight:800;min-width:38px;text-align:center;background:rgba(56,189,248,.15);border-radius:6px;padding:2px 7px}
+
+/* ADMIN SCREEN */
+#admin-screen{flex-direction:column}
+.atop{padding:11px 14px;background:rgba(5,15,35,.98);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:9px;flex-shrink:0}
+.atop h2{font-family:var(--fh);font-size:16px;font-weight:800;flex:1}
+.atop h2 span{background:var(--dg);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.btn-chat,.btn-back{padding:7px 11px;border-radius:8px;font-family:var(--fb);font-size:11.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;border:none;transition:opacity .2s}
+.btn-chat{background:var(--sg);color:#fff}
+.btn-back{background:var(--b1);border:1px solid var(--bdr);color:var(--txt)}
+.anav{display:flex;background:rgba(5,15,35,.98);border-bottom:1px solid var(--bdr);flex-shrink:0;overflow-x:auto}
+.navb{padding:10px 12px;border:none;background:transparent;color:var(--txt2);font-family:var(--fb);font-size:11.5px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0}
+.navb.active{color:var(--sky);border-bottom-color:var(--sky)}
+.admin-body{flex:1;display:flex;overflow:hidden;min-height:0}
+.atab{display:none;flex-direction:column;flex:1;overflow:hidden}
+.atab.active{display:flex}
+#at-notif,#at-warn,#at-mnt,#at-poll{overflow-y:auto;padding:14px}
+.ac{background:rgba(7,24,50,.9);border:1px solid var(--bdr);border-radius:15px;padding:16px;margin-bottom:11px}
+.ac h3{font-family:var(--fh);font-weight:700;font-size:13px;margin-bottom:12px;display:flex;align-items:center;gap:6px;color:var(--txt)}
+.ac h3 i{color:var(--sky)}
+.btn-acc{padding:9px 16px;background:var(--sg);border:none;border-radius:9px;color:#fff;font-family:var(--fh);font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 5px 16px rgba(14,164,233,.3);transition:opacity .2s}
+.btn-acc:hover{opacity:.88}
+.btn-del{padding:5px 8px;background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.25);border-radius:7px;color:var(--red);font-size:11px;cursor:pointer}
+.ali{display:flex;align-items:center;gap:8px;padding:9px 10px;background:rgba(3,6,26,.4);border:1px solid var(--bdr);border-radius:10px;margin-bottom:6px}
+.alii{flex:1;min-width:0}
+.alii b{font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
+.alii small{font-size:10.5px;color:var(--txt2)}
+.trow{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--bdr)}
+.trow:last-child{border-bottom:none}
+.trifo h4{font-weight:600;font-size:13px}
+.trifo p{font-size:11px;color:var(--txt2);margin-top:2px}
+.tsw{position:relative;width:46px;height:24px}
+.tsw input{opacity:0;width:0;height:0}
+.tsl{position:absolute;cursor:pointer;inset:0;background:rgba(3,6,26,.6);border-radius:12px;transition:.3s;border:1px solid var(--bdr)}
+.tsl::before{content:"";position:absolute;width:18px;height:18px;left:2px;top:2px;background:var(--txt2);border-radius:50%;transition:.3s}
+.tsw input:checked+.tsl{background:var(--sky2);border-color:var(--sky)}
+.tsw input:checked+.tsl::before{transform:translateX(22px);background:#fff}
+.infobox{background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.18);border-radius:10px;padding:12px;font-size:12px;color:var(--txt2);line-height:1.7;margin-top:11px}
+.frow{display:flex;gap:8px;margin-bottom:10px}
+.frow .fi{margin-bottom:0;flex:1}
+.frow .fi-sm{margin-bottom:0;width:85px;flex-shrink:0}
+.nodata{color:var(--txt2);font-size:12px;text-align:center;padding:16px 0}
+#notif-preview{margin-bottom:10px;display:none}
+
+/* POLLING */
+.poll-card{background:rgba(7,24,50,.9);border:1px solid rgba(56,189,248,.2);border-radius:14px;padding:14px;margin-bottom:10px}
+.poll-q{font-family:var(--fh);font-weight:700;font-size:13.5px;margin-bottom:10px;color:var(--txt)}
+.poll-opt{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(3,6,26,.5);border:1px solid var(--bdr);border-radius:9px;margin-bottom:6px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.poll-opt:hover{border-color:rgba(56,189,248,.35)}
+.poll-opt.voted{border-color:rgba(56,189,248,.5);background:rgba(56,189,248,.08)}
+.poll-bar{position:absolute;left:0;top:0;bottom:0;background:rgba(56,189,248,.1);border-radius:9px;transition:width .5s ease;z-index:0}
+.poll-opt-inner{display:flex;align-items:center;gap:8px;flex:1;z-index:1;position:relative}
+.poll-opt-icon{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--bdr);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+.poll-opt.voted .poll-opt-icon{border-color:var(--sky);background:rgba(56,189,248,.15);color:var(--sky)}
+.poll-opt-label{font-size:12.5px;font-weight:600;flex:1}
+.poll-opt-pct{font-size:11px;font-weight:700;color:var(--sky);z-index:1;position:relative}
+.poll-meta{font-size:11px;color:var(--txt2);margin-top:8px;display:flex;align-items:center;gap:10px}
+.poll-status{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:100px;font-size:10px;font-weight:700}
+.poll-status.open{background:rgba(52,211,153,.12);color:var(--grn);border:1px solid rgba(52,211,153,.25)}
+.poll-status.closed{background:rgba(251,113,133,.1);color:var(--red);border:1px solid rgba(251,113,133,.2)}
+.poll-actions{display:flex;gap:6px;margin-top:10px}
+.btn-poll-close{padding:5px 10px;background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.25);border-radius:7px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--fb)}
+.btn-poll-del{padding:5px 8px;background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.25);border-radius:7px;color:var(--red);font-size:11px;cursor:pointer}
+/* poll in chat */
+.msg-poll{margin:8px 0;animation:fu .3s ease both}
+.poll-chat-card{background:rgba(7,24,50,.95);border:1px solid rgba(56,189,248,.25);border-radius:14px;padding:14px;max-width:340px;width:92vw}
+.poll-chat-q{font-family:var(--fh);font-weight:700;font-size:13px;margin-bottom:2px}
+.poll-chat-meta{font-size:10.5px;color:var(--txt2);margin-bottom:10px}
+.opt-inp{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.opt-inp .fi{margin-bottom:0}
+
+@media(max-width:480px){.clogo-n,.cinfo{display:none}.frow{flex-direction:column}.frow .fi-sm{width:100%}}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-item" id="ctx-del-self" onclick="ctxAction('del-self')"><i class="fas fa-eye-slash"></i> Hapus untuk saya</div>
+  <div class="ctx-item danger" id="ctx-del-all" onclick="ctxAction('del-all')"><i class="fas fa-trash-alt"></i> Hapus untuk semua</div>
+  <div class="ctx-sep" id="ctx-sep-adm" style="display:none"></div>
+  <div class="ctx-item danger" id="ctx-del-adm" style="display:none" onclick="ctxAction('del-admin')"><i class="fas fa-shield-halved"></i> Hapus pesan (Admin)</div>
+</div>
+
+<!-- ANN POPUP -->
+<div id="ann-popup"><div id="ann-box">
+  <div class="ai">📢</div>
+  <div class="at">System Announcement</div>
+  <div class="am" id="ann-msg-text"></div>
+  <div class="ab"><div id="ann-bar-fill"></div></div>
+</div></div>
+
+<!-- WARN/BAN SPLASH -->
+<div id="penalty-splash">
+  <div class="splash-icon" id="splash-icon">⚠️</div>
+  <div class="splash-title" id="splash-title">Kamu di-Warn</div>
+  <div class="splash-reason" id="splash-reason">Melanggar aturan chat</div>
+  <div class="splash-countdown-box">
+    <div class="splash-countdown-label">Waktu tersisa</div>
+    <div class="splash-countdown" id="splash-countdown">--:--:--</div>
+    <div class="splash-sub" id="splash-sub">sebelum bisa chat kembali</div>
+  </div>
+  <div class="splash-progress"><div id="splash-prog-fill" style="width:100%"></div></div>
+  <div style="font-size:11.5px;color:var(--txt3);max-width:260px;line-height:1.6">Harap tunggu hingga waktu habis. Jangan melanggar aturan lagi ya 🙏</div>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen" class="screen active">
+  <div class="lw">
+    <div class="ll">
+      <div class="lb">☁️</div>
+      <h1>SkyChat</h1>
+      <p>Real-time global chat · Open skies, open voices</p>
+    </div>
+    <div class="lcard">
+      <div class="tpills">
+        <button class="tpill active" id="pl-mem" onclick="switchTab('member')"><i class="fas fa-user"></i> Member</button>
+        <button class="tpill" id="pl-adm" onclick="switchTab('admin')"><i class="fas fa-shield-halved"></i> Admin</button>
+      </div>
+      <div class="lform active" id="lf-member">
+        <div class="fl"><i class="fas fa-user" style="color:var(--sky)"></i> Nama Kamu</div>
+        <input id="mname" class="fi" type="text" placeholder="Masukkan nama..." maxlength="20" autocomplete="off">
+        <button class="btn-main" onclick="loginMember()"><i class="fas fa-arrow-right-to-bracket"></i> Masuk ke Chat</button>
+      </div>
+      <div class="lform" id="lf-admin">
+        <div class="fl"><i class="fas fa-envelope" style="color:var(--sky)"></i> Email Admin</div>
+        <input id="amail" class="fi" type="email" placeholder="admin@skychat.com" autocomplete="off">
+        <div class="fl"><i class="fas fa-lock" style="color:var(--sky)"></i> Password</div>
+        <input id="apass" class="fi" type="password" placeholder="Password...">
+        <button class="btn-main" id="btn-alog" onclick="loginAdmin()"><i class="fas fa-lock"></i> Login Admin</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAINTENANCE -->
+<div id="maint-screen" class="screen">
+  <div class="mi">🔧</div>
+  <h2>Server Maintenance</h2>
+  <p>Kami sedang melakukan pemeliharaan. Harap bersabar.</p>
+  <button class="btn-back" style="margin-top:20px" onclick="logout()"><i class="fas fa-arrow-left"></i> Kembali</button>
+</div>
+
+<!-- CHAT -->
+<div id="chat-screen" class="screen">
+  <div class="ctop">
+    <div class="clogo">
+      <div class="clogo-i">☁️</div>
+      <span class="clogo-n">SkyChat</span>
+    </div>
+    <div class="cinfo">
+      <div class="ctitle">🌐 Global Chat</div>
+      <div class="csub"><span class="ldot"></span><span id="online-count">0 online</span></div>
+    </div>
+    <div class="ubar">
+      <div class="av" id="cav">U</div>
+      <span class="ub-name" id="cuname">User</span>
+      <button class="ibtn" id="rename-btn" onclick="changeName()" style="display:none"><i class="fas fa-pen"></i></button>
+      <button class="ibtn" onclick="logout()"><i class="fas fa-right-from-bracket"></i></button>
+    </div>
+    <button class="btn-adm" id="btn-adm" onclick="openAdmin()"><i class="fas fa-shield-halved"></i> Admin</button>
+  </div>
+  <!-- admin only mode banner -->
+  <div id="admin-only-banner">
+    <i class="fas fa-lock"></i>
+    <span>Mode Admin Only — Hanya Admin yang bisa mengirim pesan</span>
+  </div>
+  <!-- reset banner (countdown only, no lockdown) -->
+  <div id="reset-banner">
+    <i class="fas fa-rotate"></i>
+    <span>Chat akan direset —</span>
+    <span id="reset-timer">00:00</span>
+    <span>tersisa</span>
+  </div>
+  <div class="chat-body">
+    <div id="msgs"></div>
+    <div class="cbot">
+      <div style="flex:1;position:relative">
+        <textarea id="mta" class="mta" placeholder="Ketik pesan..." rows="1" maxlength="200"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"
+          oninput="autoH(this);updateCharCount()"></textarea>
+        <span id="char-count"></span>
+      </div>
+      <button class="sbtn" id="send-btn" onclick="sendMsg()"><i class="fas fa-paper-plane"></i></button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="admin-screen" class="screen">
+  <div class="atop">
+    <span>⚡</span>
+    <h2><span>Admin</span> Panel</h2>
+    <button class="btn-chat" onclick="goChat()"><i class="fas fa-comments"></i> Chat</button>
+    <button class="btn-back" onclick="goChat()"><i class="fas fa-arrow-left"></i> Kembali</button>
+  </div>
+  <div class="anav">
+    <button class="navb active" id="nb-chat" onclick="adminTab('chat')"><i class="fas fa-comments"></i> Chat</button>
+    <button class="navb" id="nb-notif" onclick="adminTab('notif')"><i class="fas fa-bullhorn"></i> Notif</button>
+    <button class="navb" id="nb-warn" onclick="adminTab('warn')"><i class="fas fa-triangle-exclamation"></i> Warn/Kick</button>
+    <button class="navb" id="nb-poll" onclick="adminTab('poll')"><i class="fas fa-chart-bar"></i> Polling</button>
+    <button class="navb" id="nb-mnt" onclick="adminTab('mnt')"><i class="fas fa-wrench"></i> Server</button>
+  </div>
+  <div class="admin-body">
+
+    <!-- TAB: CHAT ADMIN -->
+    <div class="atab active" id="at-chat">
+      <div id="admin-msgs" style="flex:1;overflow-y:auto;padding:12px 10px;display:flex;flex-direction:column;gap:3px;min-height:0"></div>
+      <div class="cbot">
+        <div style="flex:1;position:relative">
+          <textarea id="admin-mta" class="mta" placeholder="Kirim pesan sebagai Admin..." rows="1" maxlength="200"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsgAdmin()}"
+            oninput="autoH(this)"></textarea>
+        </div>
+        <button class="sbtn" onclick="sendMsgAdmin()"><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </div>
+
+    <!-- TAB: ANNOUNCEMENT -->
+    <div class="atab" id="at-notif">
+      <div class="ac">
+        <h3><i class="fas fa-bullhorn"></i> System Announcement</h3>
+        <div class="fl">Pesan Pengumuman</div>
+        <input id="notif-msg" class="fi" type="text" placeholder="Tulis isi pengumuman..." maxlength="120">
+        <div id="notif-preview"><div class="fl">Preview</div><div id="notif-prev-inner"></div></div>
+        <button class="btn-acc" onclick="sendSysNotif()"><i class="fas fa-paper-plane"></i> Kirim</button>
+      </div>
+    </div>
+
+    <!-- TAB: WARN/KICK -->
+    <div class="atab" id="at-warn">
+      <div class="ac">
+        <h3><i class="fas fa-triangle-exclamation"></i> Warn Member</h3>
+        <div class="fl">Nickname</div><input id="warn-nick" class="fi" type="text" placeholder="Nickname..." maxlength="30">
+        <div class="fl">Durasi</div>
+        <div class="frow">
+          <input id="warn-dur" class="fi fi-sm" type="number" min="1" value="1">
+          <select id="warn-unit" class="fi"><option value="menit">Menit</option><option value="jam">Jam</option><option value="hari">Hari</option></select>
+        </div>
+        <div class="fl">Alasan</div><input id="warn-reason" class="fi" type="text" placeholder="Alasan..." maxlength="80">
+        <button class="btn-acc" onclick="sendWarn()"><i class="fas fa-triangle-exclamation"></i> Kirim Warn</button>
+      </div>
+      <div class="ac">
+        <h3><i class="fas fa-ban"></i> Kick Member</h3>
+        <div class="fl">Nickname</div><input id="kick-nick" class="fi" type="text" placeholder="Nickname..." maxlength="30">
+        <div class="fl">Durasi</div>
+        <div class="frow">
+          <input id="kick-dur" class="fi fi-sm" type="number" min="1" value="1">
+          <select id="kick-unit" class="fi"><option value="menit">Menit</option><option value="jam">Jam</option><option value="hari">Hari</option></select>
+        </div>
+        <div class="fl">Alasan</div><input id="kick-reason" class="fi" type="text" placeholder="Alasan..." maxlength="80">
+        <button class="btn-acc" style="background:linear-gradient(135deg,#fb7185,#f97316)" onclick="sendKick()"><i class="fas fa-ban"></i> Kirim Kick</button>
+      </div>
+      <div class="ac">
+        <h3><i class="fas fa-list"></i> Riwayat Warn &amp; Kick</h3>
+        <div id="adm-notif-list"><p class="nodata">Belum ada data</p></div>
+      </div>
+    </div>
+
+    <!-- TAB: POLLING -->
+    <div class="atab" id="at-poll">
+      <div class="ac">
+        <h3><i class="fas fa-chart-bar"></i> Buat Polling Baru</h3>
+        <div class="fl">Pertanyaan</div>
+        <input id="poll-q" class="fi" type="text" placeholder="Tulis pertanyaan..." maxlength="100">
+        <div class="fl">Pilihan (min 2, maks 4)</div>
+        <div class="opt-inp"><input id="opt1" class="fi" type="text" placeholder="Pilihan 1..." maxlength="50"></div>
+        <div class="opt-inp"><input id="opt2" class="fi" type="text" placeholder="Pilihan 2..." maxlength="50"></div>
+        <div class="opt-inp"><input id="opt3" class="fi" type="text" placeholder="Pilihan 3 (opsional)" maxlength="50"></div>
+        <div class="opt-inp"><input id="opt4" class="fi" type="text" placeholder="Pilihan 4 (opsional)" maxlength="50"></div>
+        <button class="btn-acc" onclick="createPoll()"><i class="fas fa-plus"></i> Buat &amp; Kirim ke Chat</button>
+      </div>
+      <div class="ac">
+        <h3><i class="fas fa-list-check"></i> Polling Aktif</h3>
+        <div id="poll-admin-list"><p class="nodata">Belum ada polling</p></div>
+      </div>
+    </div>
+
+    <!-- TAB: SERVER -->
+    <div class="atab" id="at-mnt">
+      <div class="ac">
+        <h3><i class="fas fa-server"></i> Pengaturan Server</h3>
+        <div class="trow">
+          <div class="trifo"><h4>🔧 Maintenance Mode</h4><p>Blokir semua member masuk</p></div>
+          <label class="tsw"><input type="checkbox" id="maint-tog" onchange="setMaint(this.checked)"><span class="tsl"></span></label>
+        </div>
+        <div class="trow">
+          <div class="trifo"><h4>🔒 Mode Admin Only</h4><p>Hanya admin yang bisa kirim pesan</p></div>
+          <label class="tsw"><input type="checkbox" id="adminonly-tog" onchange="setAdminOnly(this.checked)"><span class="tsl"></span></label>
+        </div>
+        <div id="maint-status-bar" style="margin-top:11px;padding:9px 13px;border-radius:9px;font-size:12.5px;font-weight:700;text-align:center;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399">✅ Server Normal</div>
+      </div>
+      <div class="ac">
+        <h3><i class="fas fa-user-pen"></i> Ganti Nama Admin</h3>
+        <div class="fl">Nama Admin Baru</div>
+        <div class="frow">
+          <input id="admin-newname" class="fi" type="text" placeholder="Nama tampilan admin..." maxlength="20" autocomplete="off">
+          <button class="btn-acc" style="white-space:nowrap;flex-shrink:0" onclick="changeAdminName()"><i class="fas fa-check"></i> Simpan</button>
+        </div>
+        <div class="infobox" style="margin-top:0">Role <strong style="color:var(--gold)">⚡ Admin</strong> tetap muncul di chat. Nama ini juga disimpan ke Firebase.</div>
+      </div>
+      <div class="infobox"><strong style="color:var(--gold)">⚠ Catatan:</strong> Admin tetap memiliki akses penuh saat maintenance aktif.</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const firebaseConfig={
+  apiKey:"AIzaSyCeXbgxJ-OWZWmCdVKtaM4g3HxyV8XXGbQ",
+  authDomain:"sky-chat-by-ditzz.firebaseapp.com",
+  databaseURL:"https://sky-chat-by-ditzz-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"sky-chat-by-ditzz",storageBucket:"sky-chat-by-ditzz.firebasestorage.app",
+  messagingSenderId:"233503046207",appId:"1:233503046207:web:9fc5b8ee965d3930a9168a"
+};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database(),auth=firebase.auth();
+var me=null,meAdm=false,maintMode=false,adminOnlyMode=false,msgOn=false,loginTime=0;
+var resetInterval=null,pollListeners={};
+var splashInterval=null,splashUntil=0,splashTotal=0;
+const MAX_CHAR=200;
+
+/* ── SESSION PERSISTENCE ── */
+function saveSession(){
+  if(!me)return;
+  var s={name:me,isAdm:meAdm,loginTime:loginTime};
+  try{localStorage.setItem("skychat_session",JSON.stringify(s));}catch(e){}
+}
+function clearSession(){
+  try{localStorage.removeItem("skychat_session");}catch(e){}
+}
+function loadSession(){
+  try{
+    var raw=localStorage.getItem("skychat_session");
+    if(!raw)return null;
+    return JSON.parse(raw);
+  }catch(e){return null;}
+}
+
+/* ── SPLASH SYSTEM ── */
+function showPenaltySplash(type,until,reason){
+  splashUntil=until;splashTotal=until-Date.now();
+  var splash=document.getElementById("penalty-splash");
+  var isWarn=type==="warned";
+  document.getElementById("splash-icon").textContent=isWarn?"⚠️":"🚫";
+  document.getElementById("splash-icon").className="splash-icon "+(isWarn?"warn-icon":"ban-icon");
+  document.getElementById("splash-title").textContent=isWarn?"Kamu Kena Warn!":"Kamu Di-Kick/Ban!";
+  document.getElementById("splash-title").className="splash-title "+(isWarn?"warn-title":"ban-title");
+  document.getElementById("splash-reason").textContent=reason?"Alasan: "+reason:"Melanggar aturan chat";
+  document.getElementById("splash-countdown").className="splash-countdown "+(isWarn?"warn-cd":"ban-cd");
+  var fill=document.getElementById("splash-prog-fill");
+  fill.className=isWarn?"splash-prog-warn":"splash-prog-ban";
+  splash.className="show";
+  clearInterval(splashInterval);
+  splashInterval=setInterval(function(){
+    var left=splashUntil-Date.now();
+    if(left<=0){
+      clearInterval(splashInterval);
+      hidePenaltySplash();
+      return;
+    }
+    var h=Math.floor(left/3600000),m=Math.floor((left%3600000)/60000),s=Math.floor((left%60000)/1000);
+    document.getElementById("splash-countdown").textContent=
+      (h>0?String(h).padStart(2,"0")+":":"")+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+    var pct=Math.max(0,Math.min(100,left/splashTotal*100));
+    fill.style.width=pct+"%";
+  },500);
+}
+function hidePenaltySplash(){
+  clearInterval(splashInterval);
+  document.getElementById("penalty-splash").className="";
+  // Clear ban from firebase after expiry
+  if(me){var k=safeKey(me);db.ref("bans/"+k).once("value").then(function(s){if(s.exists()&&s.val().until<=Date.now())db.ref("bans/"+k).remove();});}
+}
+
+// Context menu state
+var ctxMsgKey=null,ctxMsgSender=null;
+
+/* ── UTILS ── */
+function toast(m,t){var el=document.getElementById("toast");el.textContent=m;el.className="show"+(t==="err"?" err":t==="ok"?" ok":"");clearTimeout(el._t);el._t=setTimeout(function(){el.className="";},3000);}
+function fT(ts){return ts?new Date(ts).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}):""}
+function fD(ts){return ts?new Date(ts).toLocaleDateString("id-ID",{day:"numeric",month:"short"}):""}
+function esc(t){return t?String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""}
+function autoH(ta){ta.style.height="auto";ta.style.height=Math.min(ta.scrollHeight,96)+"px";}
+function show(id){
+  document.querySelectorAll(".screen").forEach(function(s){s.classList.remove("active");});
+  document.getElementById(id).classList.add("active");
+  var ab=document.getElementById("btn-adm");
+  if(ab)ab.className="btn-adm"+(id==="chat-screen"&&meAdm?" vis":"");
+}
+function updateCharCount(){
+  var ta=document.getElementById("mta");
+  var len=ta.value.length,el=document.getElementById("char-count");
+  if(len===0){el.textContent="";return;}
+  el.textContent=len+"/"+MAX_CHAR;
+  el.className=len>MAX_CHAR*0.9?"danger":len>MAX_CHAR*0.7?"warn":"";
+}
+function safeKey(name){return name.replace(/[.#$\/\[\]]/g,"_");}
+
+/* ── CONTEXT MENU ── */
+document.addEventListener("click",function(e){
+  var menu=document.getElementById("ctx-menu");
+  if(!menu.contains(e.target))hideCtx();
+});
+
+function showCtx(e,key,sender){
+  e.preventDefault();e.stopPropagation();
+  ctxMsgKey=key;ctxMsgSender=sender;
+  var menu=document.getElementById("ctx-menu");
+  var isSelf=(sender===me);
+  var isAdm=meAdm;
+
+  // Show/hide options based on role
+  document.getElementById("ctx-del-self").style.display=isSelf?"flex":"none";
+  document.getElementById("ctx-del-all").style.display=isSelf?"flex":"none";
+  document.getElementById("ctx-sep-adm").style.display=isAdm?"block":"none";
+  document.getElementById("ctx-del-adm").style.display=isAdm?"flex":"none";
+
+  // If not self and not admin — nothing to show
+  if(!isSelf&&!isAdm){return;}
+
+  menu.className="show";
+  var x=e.clientX,y=e.clientY;
+  var mw=180,mh=120;
+  if(x+mw>window.innerWidth)x=window.innerWidth-mw-8;
+  if(y+mh>window.innerHeight)y=window.innerHeight-mh-8;
+  menu.style.left=x+"px";menu.style.top=y+"px";
+}
+function hideCtx(){
+  document.getElementById("ctx-menu").className="";
+  ctxMsgKey=null;ctxMsgSender=null;
+}
+
+function ctxAction(action){
+  hideCtx();
+  var key=ctxMsgKey;var sender=ctxMsgSender;
+  if(!key)return;
+
+  if(action==="del-self"){
+    // Hide locally only (both views)
+    ["msgs","admin-msgs"].forEach(function(id){
+      var el=document.querySelector("#"+id+" [data-key='"+key+"']");
+      if(el)el.style.display="none";
+    });
+    toast("Pesan dihapus untuk kamu","ok");
+  }
+  else if(action==="del-all"){
+    if(!confirm("Hapus pesan ini untuk semua orang?"))return;
+    // Update in Firebase — mark as deleted
+    db.ref("messages/"+key).update({
+      deleted:true,
+      deletedBy:me,
+      deletedAt:Date.now(),
+      originalSender:sender
+    }).then(function(){
+      toast("Pesan dihapus untuk semua","ok");
+    }).catch(function(){toast("Gagal menghapus!","err");});
+  }
+  else if(action==="del-admin"){
+    if(!meAdm)return;
+    if(!confirm("Hapus pesan ini dari database?"))return;
+    // Admin: hard delete from Firebase
+    db.ref("messages/"+key).remove().then(function(){
+      // Remove from DOM
+      ["msgs","admin-msgs"].forEach(function(id){
+        var el=document.querySelector("#"+id+" [data-key='"+key+"']");
+        if(el)el.remove();
+      });
+      toast("Pesan dihapus (Admin)","ok");
+    }).catch(function(){toast("Gagal!","err");});
+  }
+}
+
+/* ── ANNOUNCEMENT ── */
+var annTimer=null;
+function showAnn(msg){
+  var popup=document.getElementById("ann-popup");
+  var fill=document.getElementById("ann-bar-fill");
+  document.getElementById("ann-msg-text").textContent=msg;
+  clearTimeout(annTimer);popup.classList.remove("on");
+  fill.style.transition="none";fill.style.width="100%";
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+    popup.classList.add("on");
+    setTimeout(function(){fill.style.transition="width 5s linear";fill.style.width="0%";},60);
+    annTimer=setTimeout(function(){popup.classList.remove("on");},5300);
+  });});
+}
+
+/* ── RESET SYSTEM (No lockdown — just clears messages) ── */
+var resetScheduled=false;
+
+function calcNextResetTime(){
+  var now=new Date();
+  var m=now.getMinutes(),s=now.getSeconds(),ms=now.getMilliseconds();
+  var minInCycle=m%30;
+  var msLeft=((30-minInCycle)*60-s)*1000-ms;
+  if(msLeft<=200)msLeft+=30*60*1000;
+  return Date.now()+msLeft;
+}
+
+function initResetSystem(){
+  db.ref("settings/nextResetAt").once("value").then(function(snap){
+    var stored=snap.val();
+    var next=calcNextResetTime();
+    if(!stored||stored<Date.now()){
+      db.ref("settings/nextResetAt").set(next);
+      stored=next;
+    }
+    startResetCountdown(stored);
+  });
+  db.ref("settings/nextResetAt").on("value",function(snap){
+    var val=snap.val();
+    if(val&&val>Date.now())startResetCountdown(val);
+  });
+  // NO resetActive lockdown listener anymore
+}
+
+function startResetCountdown(nextAt){
+  clearInterval(resetInterval);
+  var banner=document.getElementById("reset-banner");
+  var timerEl=document.getElementById("reset-timer");
+
+  resetInterval=setInterval(function(){
+    var left=nextAt-Date.now();
+    if(left<=0){
+      clearInterval(resetInterval);
+      // Use transaction so only one client resets
+      db.ref("settings/resetLock").transaction(function(curr){
+        if(curr)return;
+        return Date.now();
+      }).then(function(result){
+        if(!result.committed)return;
+        // Just clear messages — NO lockdown
+        db.ref("messages").remove();
+        var nextReset=Date.now()+30*60*1000;
+        db.ref("settings/nextResetAt").set(nextReset);
+        setTimeout(function(){db.ref("settings/resetLock").remove();},3000);
+        toast("💫 Chat telah direset!","ok");
+      });
+      return;
+    }
+    // Show countdown last 60s only
+    if(left<=60000){
+      banner.className="show";
+      var s=Math.ceil(left/1000);
+      timerEl.textContent="0:"+String(s).padStart(2,"0");
+    } else {
+      banner.className="";
+    }
+  },500);
+}
+
+/* ── ADMIN ONLY MODE ── */
+db.ref("settings/adminOnly").on("value",function(snap){
+  adminOnlyMode=snap.val()===true;
+  var tog=document.getElementById("adminonly-tog");
+  if(tog)tog.checked=adminOnlyMode;
+  updateAdminOnlyUI();
+});
+function updateAdminOnlyUI(){
+  var banner=document.getElementById("admin-only-banner");
+  var mta=document.getElementById("mta");
+  var btn=document.getElementById("send-btn");
+  if(adminOnlyMode&&!meAdm){
+    banner.className="show";
+    if(mta){mta.disabled=true;mta.placeholder="🔒 Hanya Admin yang bisa mengirim pesan...";}
+    if(btn)btn.disabled=true;
+  } else {
+    if(banner)banner.className="";
+    if(mta&&!mta.disabled||adminOnlyMode===false){
+      if(mta){mta.disabled=false;mta.placeholder="Ketik pesan...";}
+      if(btn)btn.disabled=false;
+    }
+  }
+}
+function setAdminOnly(val){
+  db.ref("settings/adminOnly").set(val).then(function(){
+    toast(val?"🔒 Mode Admin Only ON":"🔓 Mode Admin Only OFF",val?"err":"ok");
+  });
+}
+
+/* ── PRESENCE ── */
+function setupPresence(){
+  if(!me)return;
+  var k=safeKey(me);
+  var r=db.ref("presence/"+k);
+  r.set({name:me,ts:Date.now()});r.onDisconnect().remove();
+  db.ref("presence").on("value",function(snap){
+    var el=document.getElementById("online-count");
+    if(el)el.textContent=(snap.numChildren()||0)+" online";
+  });
+  // Listen for real-time kick signal (only for non-admin members)
+  if(!meAdm){
+    db.ref("kicks/"+k).on("value",function(snap){
+      if(!snap.exists())return;
+      var data=snap.val();
+      if(data&&data.until&&data.until>Date.now()){
+        var reason=data.reason||"";
+        // Check type: warn or ban
+        db.ref("bans/"+k).once("value").then(function(banSnap){
+          var type="banned";
+          if(banSnap.exists()&&banSnap.val().type)type=banSnap.val().type;
+          if(type==="warned"){
+            // Warn: show splash but stay logged in
+            toast("⚠️ Kamu di-warn oleh Admin"+(reason?" · "+reason:""),"err");
+            showPenaltySplash("warned",data.until,reason);
+            db.ref("kicks/"+k).remove();
+          } else {
+            // Ban/kick: splash then log out
+            toast("🚫 Kamu di-kick oleh Admin"+(reason?" · "+reason:""),"err");
+            showPenaltySplash("banned",data.until,reason);
+            setTimeout(function(){
+              cleanupPresence();
+              db.ref("kicks/"+k).remove();
+              me=null;meAdm=false;msgOn=false;loginTime=0;
+              renderedKeys={msgs:{},adminMsgs:{}};
+              clearSession();
+              document.getElementById("mname").value="";
+              document.getElementById("msgs").innerHTML="";
+              document.getElementById("admin-msgs").innerHTML="";
+              show("login-screen");
+              // Keep splash visible on login screen until timer expires
+            },2000);
+          }
+        });
+      }
+    });
+  }
+}
+function cleanupPresence(){if(!me)return;db.ref("presence/"+safeKey(me)).remove();}
+
+/* ── MAINTENANCE ── */
+db.ref("settings/maintenance").on("value",function(snap){
+  maintMode=snap.val()===true;
+  var tog=document.getElementById("maint-tog");if(tog)tog.checked=maintMode;
+  updateMaintBar(maintMode);
+  if(maintMode&&me&&!meAdm)show("maint-screen");
+  else if(!maintMode&&document.getElementById("maint-screen").classList.contains("active"))show("chat-screen");
+});
+function updateMaintBar(on){
+  var b=document.getElementById("maint-status-bar");if(!b)return;
+  if(on){b.style.cssText="margin-top:11px;padding:9px 13px;border-radius:9px;font-size:12.5px;font-weight:700;text-align:center;background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.3);color:#fb7185";b.textContent="🔧 Maintenance AKTIF";}
+  else{b.style.cssText="margin-top:11px;padding:9px 13px;border-radius:9px;font-size:12.5px;font-weight:700;text-align:center;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399";b.textContent="✅ Server Normal";}
+}
+function setMaint(val){db.ref("settings/maintenance").set(val).then(function(){toast(val?"🔧 Maintenance ON":"✅ Maintenance OFF",val?"err":"ok");});}
+
+/* ── LOGIN ── */
+function switchTab(t){
+  ["member","admin"].forEach(function(x){
+    document.getElementById("pl-"+(x==="member"?"mem":"adm")).classList.toggle("active",x===t);
+    document.getElementById("lf-"+x).classList.toggle("active",x===t);
+  });
+}
+/* ── BAN / WARN SYSTEM ── */
+function durToMs(dur,unit){
+  var n=parseInt(dur)||1;
+  if(unit==="menit")return n*60*1000;
+  if(unit==="jam")return n*3600*1000;
+  if(unit==="hari")return n*86400*1000;
+  return n*60*1000;
+}
+
+function checkBanWarn(name,cb){
+  var k=safeKey(name);
+  db.ref("bans/"+k).once("value").then(function(snap){
+    if(!snap.exists()){cb("ok",null);return;}
+    var data=snap.val();
+    var now=Date.now();
+    if(data.until&&data.until>now){
+      cb(data.type||"banned",data);
+    } else {
+      db.ref("bans/"+k).remove();
+      cb("ok",null);
+    }
+  }).catch(function(){cb("ok",null);});
+}
+
+function loginMember(){
+  var name=document.getElementById("mname").value.trim();
+  if(!name){toast("Masukkan nama kamu!","err");return;}
+  if(name.length>20){toast("Nama maks 20 karakter!","err");return;}
+  var key=safeKey(name);
+  checkBanWarn(name,function(status,data){
+    if(status==="banned"||status==="warned"){
+      // Show splash screen — lock user out with countdown
+      me=name;meAdm=false;loginTime=Date.now();
+      setUserUI(name,false);
+      show("chat-screen");
+      showPenaltySplash(status,data.until,data.reason||"");
+      return;
+    }
+    db.ref("presence/"+key).once("value").then(function(snap2){
+      if(snap2.exists()){toast("Nama '"+name+"' sedang dipakai! Coba nama lain.","err");return;}
+      me=name;meAdm=false;loginTime=Date.now();setUserUI(name,false);
+      saveSession();
+      if(maintMode){show("maint-screen");return;}
+      show("chat-screen");startChat();toast("Selamat datang, "+name+"! 👋","ok");
+    });
+  });
+}
+function loginAdmin(){
+  var email=document.getElementById("amail").value.trim();
+  var pass=document.getElementById("apass").value;
+  if(!email||!pass){toast("Isi email & password!","err");return;}
+  var btn=document.getElementById("btn-alog");
+  btn.classList.add("loading");btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Memeriksa...';
+  auth.signInWithEmailAndPassword(email,pass).then(function(cred){
+    btn.classList.remove("loading");btn.innerHTML='<i class="fas fa-lock"></i> Login Admin';
+    return db.ref("admins/"+cred.user.uid).once("value").then(function(snap){
+      if(!snap.exists()){auth.signOut();toast("Bukan admin!","err");return;}
+      var data=snap.val();
+      var adminName=data.displayName||(data.name)||(email.split("@")[0]);
+      me=adminName;meAdm=true;loginTime=Date.now();
+      setUserUI(me,true);saveSession();show("chat-screen");startChat();toast("Login admin berhasil! ⚡","ok");
+    });
+  }).catch(function(err){
+    btn.classList.remove("loading");btn.innerHTML='<i class="fas fa-lock"></i> Login Admin';
+    var msg="Login gagal!";
+    if(err.code==="auth/wrong-password"||err.code==="auth/invalid-credential")msg="Password salah!";
+    else if(err.code==="auth/user-not-found")msg="Email tidak ditemukan!";
+    else if(err.code==="auth/too-many-requests")msg="Terlalu banyak percobaan!";
+    toast(msg,"err");document.getElementById("apass").value="";
+  });
+}
+function setUserUI(name,isAdm){
+  document.getElementById("cuname").textContent=isAdm?"⚡ "+name:name;
+  var av=document.getElementById("cav");av.textContent=name.charAt(0).toUpperCase();av.className="av"+(isAdm?" adm":"");
+  var renameBtn=document.getElementById("rename-btn");
+  if(renameBtn)renameBtn.style.display=isAdm?"none":"flex";
+  var admBtn=document.getElementById("btn-adm");
+  if(admBtn)admBtn.className="btn-adm"+(isAdm?" vis":"");
+}
+function logout(){
+  cleanupPresence();clearInterval(resetInterval);clearInterval(splashInterval);
+  if(meAdm)auth.signOut().catch(function(){});
+  me=null;meAdm=false;msgOn=false;loginTime=0;adminOnlyMode=false;
+  renderedKeys={msgs:{},adminMsgs:{}};
+  clearSession();
+  hidePenaltySplash();
+  document.getElementById("mname").value="";document.getElementById("amail").value="";document.getElementById("apass").value="";
+  document.getElementById("msgs").innerHTML="";document.getElementById("admin-msgs").innerHTML="";
+  show("login-screen");toast("Sampai jumpa! 👋");
+}
+function changeName(){
+  toast("Nama tidak bisa diubah selama sesi berlangsung.","err");
+}
+
+/* ── START CHAT ── */
+function startChat(){
+  if(!msgOn){
+    msgOn=true;
+    listenMsgs();
+    listenPolls();
+    db.ref("messages").on("value",function(snap){
+      if(!snap.exists()){
+        renderedKeys={msgs:{},adminMsgs:{}};
+        document.getElementById("msgs").innerHTML="";
+        document.getElementById("admin-msgs").innerHTML="";
+      }
+    });
+  }
+  listenSysNotifLog();
+  setupPresence();
+  initResetSystem();
+  // Apply admin only mode UI state
+  updateAdminOnlyUI();
+}
+
+/* ── MESSAGES ── */
+var renderedKeys={msgs:{},adminMsgs:{}};
+
+function listenMsgs(){
+  db.ref("messages").limitToLast(80).on("child_added",function(snap){
+    var v=snap.val();var k=snap.key;
+    if(v.type==="poll")appendPollMsg(v,k);
+    else if(v.type==="sys")appendSysMsgChat(v,k);
+    else appendMsg(v,k);
+    trimMsgDOM("msgs",80);
+    if(meAdm)trimMsgDOM("admin-msgs",80);
+  });
+  // Listen for message changes (deleted=true updates)
+  db.ref("messages").limitToLast(80).on("child_changed",function(snap){
+    var v=snap.val();var k=snap.key;
+    if(v.deleted){
+      updateDeletedMsg(k,v.originalSender||v.sender||"Seseorang");
+    }
+  });
+  // Listen for message removal (admin hard delete)
+  db.ref("messages").on("child_removed",function(snap){
+    var k=snap.key;
+    ["msgs","admin-msgs"].forEach(function(id){
+      var el=document.querySelector("#"+id+" [data-key='"+k+"']");
+      if(el)el.remove();
+    });
+  });
+}
+
+function updateDeletedMsg(key,senderName){
+  ["msgs","admin-msgs"].forEach(function(id){
+    var el=document.querySelector("#"+id+" [data-key='"+key+"']");
+    if(!el)return;
+    el.classList.add("msg-deleted");
+    var bub=el.querySelector(".bub");
+    if(bub){
+      bub.innerHTML='<p class="del-text"><i class="fas fa-ban" style="font-size:10px;opacity:.5"></i> '+esc(senderName)+' menghapus pesan ini</p><span class="ts" style="opacity:.3">–</span>';
+      // Remove context menu listener on deleted messages
+      bub.onclick=null;bub.oncontextmenu=null;
+    }
+  });
+}
+
+function trimMsgDOM(id,max){
+  var wrap=document.getElementById(id);if(!wrap)return;
+  while(wrap.children.length>max){wrap.removeChild(wrap.firstChild);}
+}
+
+function buildBubHtml(msg,isSelf,isAdminMsg,key){
+  var sender=msg.sender;
+  // If already deleted
+  if(msg.deleted){
+    var delSender=msg.originalSender||sender||"Seseorang";
+    return '<div class="bub"><p class="del-text"><i class="fas fa-ban" style="font-size:10px;opacity:.5"></i> '+esc(delSender)+' menghapus pesan ini</p><span class="ts" style="opacity:.3">–</span></div>';
+  }
+  var senderHtml=isAdminMsg
+    ?'<span class="sndr">'+esc(sender)+'<span class="abadge"><i class="fas fa-shield-halved"></i> Admin</span></span>'
+    :'<span class="sndr">'+esc(sender)+'</span>';
+  var ctxAttr='oncontextmenu="showCtx(event,\''+key+'\',\''+esc(sender)+'\')" onclick="showCtx(event,\''+key+'\',\''+esc(sender)+'\')"';
+  if(isSelf){
+    return '<div class="bub" '+ctxAttr+'>'+(isAdminMsg?'<span style="display:block;text-align:right;margin-bottom:2px"><span class="abadge" style="float:right;clear:both"><i class="fas fa-shield-halved"></i> Admin</span><br style="clear:both"></span>':'')+'<p>'+esc(msg.text)+'</p><span class="ts">'+fT(msg.timestamp)+'</span></div>';
+  } else {
+    return '<div class="bub" '+ctxAttr+'>'+senderHtml+'<p>'+esc(msg.text)+'</p><span class="ts">'+fT(msg.timestamp)+'</span></div>';
+  }
+}
+
+function appendMsg(msg,key){
+  var isSelf=msg.sender===me;
+  var isAdminMsg=msg.isAdmin===true;
+  var isDeleted=msg.deleted===true;
+
+  if(!renderedKeys.msgs[key]){
+    renderedKeys.msgs[key]=true;
+    var wrap=document.getElementById("msgs");
+    if(wrap){
+      var div=document.createElement("div");
+      div.className="msg "+(isSelf?"me":"you")+(isDeleted?" msg-deleted":"");
+      div.setAttribute("data-key",key);
+      div.innerHTML=buildBubHtml(msg,isSelf,isAdminMsg,key);
+      wrap.appendChild(div);wrap.scrollTop=wrap.scrollHeight;
+    }
+  }
+  if(meAdm&&!renderedKeys.adminMsgs[key]){
+    renderedKeys.adminMsgs[key]=true;
+    var awrap=document.getElementById("admin-msgs");
+    if(awrap){
+      var adiv=document.createElement("div");
+      adiv.className="msg "+(isSelf?"me":"you")+(isDeleted?" msg-deleted":"");
+      adiv.setAttribute("data-key",key);
+      adiv.innerHTML=buildBubHtml(msg,isSelf,isAdminMsg,key);
+      awrap.appendChild(adiv);awrap.scrollTop=awrap.scrollHeight;
+    }
+  }
+}
+
+function appendSysMsgChat(msg,key){
+  if(msg.notifType==="announcement"){
+    if(msg.timestamp>loginTime-2000||msg.ts>loginTime-2000)showAnn(msg.text);
+    return;
+  }
+  if(msg.notifType!=="warn"&&msg.notifType!=="kick")return;
+  var cls=msg.notifType==="warn"?"warn":"kick";
+  var icon=msg.notifType==="warn"?"fa-triangle-exclamation":"fa-ban";
+  var ts=msg.timestamp||msg.ts||Date.now();
+  var html='<div class="sys-pill '+cls+'"><i class="fas '+icon+'"></i><span>'+esc(msg.text)+'</span><span class="sn-time">'+fT(ts)+'</span></div>';
+  ["msgs","admin-msgs"].forEach(function(id){
+    var map=id==="msgs"?renderedKeys.msgs:renderedKeys.adminMsgs;
+    var kk=key+"-"+id;if(map[kk])return;map[kk]=true;
+    var wrap=document.getElementById(id);if(!wrap)return;
+    var div=document.createElement("div");div.className="msg-sys";div.setAttribute("data-key",key);
+    div.innerHTML=html;wrap.appendChild(div);wrap.scrollTop=wrap.scrollHeight;
+  });
+}
+
+function sendMsg(){
+  if(!me)return;
+  if(maintMode&&!meAdm){toast("Server maintenance!","err");return;}
+  if(adminOnlyMode&&!meAdm){toast("🔒 Hanya Admin yang bisa mengirim!","err");return;}
+  var ta=document.getElementById("mta");var txt=ta.value.trim();
+  if(!txt)return;if(txt.length>MAX_CHAR){toast("Pesan maks "+MAX_CHAR+" karakter!","err");return;}
+  db.ref("messages").push({sender:me,text:txt,timestamp:Date.now(),isAdmin:meAdm});
+  ta.value="";ta.style.height="auto";document.getElementById("char-count").textContent="";
+}
+function sendMsgAdmin(){
+  if(!me||!meAdm)return;
+  var ta=document.getElementById("admin-mta");var txt=ta.value.trim();
+  if(!txt)return;if(txt.length>MAX_CHAR){toast("Maks "+MAX_CHAR+" karakter!","err");return;}
+  db.ref("messages").push({sender:me,text:txt,timestamp:Date.now(),isAdmin:true});
+  ta.value="";ta.style.height="auto";
+}
+
+/* ── ADMIN: ANNOUNCEMENT ── */
+document.getElementById("notif-msg").addEventListener("input",function(){
+  var msg=this.value.trim();var prev=document.getElementById("notif-preview");
+  if(!msg){prev.style.display="none";return;}prev.style.display="block";
+  document.getElementById("notif-prev-inner").innerHTML='<div style="text-align:center;padding:6px 0;font-size:12px;color:var(--cyan)">📢 '+esc(msg)+'</div>';
+});
+function sendSysNotif(){
+  var msg=document.getElementById("notif-msg").value.trim();
+  if(!msg){toast("Tulis pesan!","err");return;}
+  var p={type:"sys",notifType:"announcement",text:msg,sender:me,timestamp:Date.now()};
+  db.ref("sysnotifs").push(p).then(function(){
+    db.ref("settings/lastAnnouncement").set({text:msg,ts:Date.now()});
+    document.getElementById("notif-msg").value="";document.getElementById("notif-preview").style.display="none";
+    toast("Announcement terkirim! 📢","ok");
+  }).catch(function(){toast("Gagal!","err");});
+}
+
+/* ── ADMIN: WARN/KICK ── */
+function listenSysNotifLog(){
+  db.ref("sysnotifs").limitToLast(30).on("value",function(snap){
+    var list=document.getElementById("adm-notif-list");if(!list)return;
+    list.innerHTML="";
+    if(!snap||!snap.exists()){list.innerHTML='<p class="nodata">Belum ada data</p>';return;}
+    var items=[];snap.forEach(function(c){items.push(Object.assign({key:c.key},c.val()));});
+    items=items.filter(function(n){return n.notifType==="warn"||n.notifType==="kick";});
+    if(!items.length){list.innerHTML='<p class="nodata">Belum ada warn/kick</p>';return;}
+    items.reverse().forEach(function(n){
+      var d=document.createElement("div");d.className="ali";
+      d.innerHTML='<div class="alii"><b>'+esc(n.text)+'</b><small>'+(n.notifType==="warn"?"⚠️ Warn":"🚫 Kick")+' · '+fD(n.timestamp)+'</small></div><button class="btn-del" onclick="delNotif(\''+n.key+'\')"><i class="fas fa-trash"></i></button>';
+      list.appendChild(d);
+    });
+  });
+}
+function delNotif(key){if(!confirm("Hapus?"))return;db.ref("sysnotifs/"+key).remove().then(function(){toast("Dihapus!");});}
+function sendWarn(){
+  var nick=document.getElementById("warn-nick").value.trim();
+  var dur=document.getElementById("warn-dur").value;var unit=document.getElementById("warn-unit").value;
+  var reason=document.getElementById("warn-reason").value.trim();
+  if(!nick){toast("Masukkan nickname!","err");return;}if(!dur||dur<1){toast("Masukkan durasi!","err");return;}
+  var ms=durToMs(dur,unit);
+  var until=Date.now()+ms;
+  var k=safeKey(nick);
+  var banData={type:"warned",name:nick,reason:reason||"",until:until,by:me,timestamp:Date.now()};
+  db.ref("bans/"+k).set(banData).then(function(){
+    var txt="⚠️ "+nick+" telah di-warn selama "+dur+" "+unit+(reason?" · Alasan: "+reason:"");
+    var now=Date.now();
+    var p={type:"sys",notifType:"warn",text:txt,sender:me,timestamp:now};
+    db.ref("messages").push(p);
+    db.ref("sysnotifs").push(p);
+    document.getElementById("warn-nick").value="";document.getElementById("warn-reason").value="";document.getElementById("warn-dur").value="1";
+    toast("Warn terkirim! ⚠️","ok");
+    db.ref("presence/"+k).once("value").then(function(s){
+      if(s.exists())db.ref("kicks/"+k).set({until:until,reason:reason||""});
+    });
+  }).catch(function(){toast("Gagal!","err");});
+}
+function sendKick(){
+  var nick=document.getElementById("kick-nick").value.trim();
+  var dur=document.getElementById("kick-dur").value;var unit=document.getElementById("kick-unit").value;
+  var reason=document.getElementById("kick-reason").value.trim();
+  if(!nick){toast("Masukkan nickname!","err");return;}if(!dur||dur<1){toast("Masukkan durasi!","err");return;}
+  var ms=durToMs(dur,unit);
+  var until=Date.now()+ms;
+  var k=safeKey(nick);
+  var banData={type:"banned",name:nick,reason:reason||"",until:until,by:me,timestamp:Date.now()};
+  db.ref("bans/"+k).set(banData).then(function(){
+    var txt="🚫 "+nick+" telah di-kick selama "+dur+" "+unit+(reason?" · Alasan: "+reason:"");
+    var now=Date.now();
+    var p={type:"sys",notifType:"kick",text:txt,sender:me,timestamp:now};
+    db.ref("messages").push(p);
+    db.ref("sysnotifs").push(p);
+    document.getElementById("kick-nick").value="";document.getElementById("kick-reason").value="";document.getElementById("kick-dur").value="1";
+    toast("Kick terkirim! 🚫","ok");
+    db.ref("kicks/"+k).set({until:until,reason:reason||""});
+  }).catch(function(){toast("Gagal!","err");});
+}
+
+/* ── POLLING SYSTEM ── */
+function listenPolls(){
+  db.ref("polls").on("value",function(snap){
+    renderPollAdminList(snap);
+  });
+  db.ref("settings/lastAnnouncement").on("value",function(snap){
+    var v=snap.val();
+    if(v&&v.ts>loginTime-2000&&v.ts>Date.now()-10000)showAnn(v.text);
+  });
+}
+
+function renderPollAdminList(snap){
+  var list=document.getElementById("poll-admin-list");if(!list)return;
+  list.innerHTML="";
+  if(!snap||!snap.exists()){list.innerHTML='<p class="nodata">Belum ada polling</p>';return;}
+  var polls=[];snap.forEach(function(c){polls.push(Object.assign({key:c.key},c.val()));});
+  polls.reverse().forEach(function(p){
+    var totalVotes=0;var opts=p.options||[];var votes=p.votes||{};
+    Object.values(votes).forEach(function(v){totalVotes++;});
+    var d=document.createElement("div");d.className="poll-card";
+    var optsHtml=opts.map(function(opt,i){
+      var cnt=Object.values(votes).filter(function(v){return v===i;}).length;
+      var pct=totalVotes>0?Math.round(cnt/totalVotes*100):0;
+      return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px"><div style="flex:1;background:rgba(56,189,248,.1);border-radius:6px;overflow:hidden;height:22px;position:relative"><div style="height:100%;background:var(--sg);width:'+pct+'%;transition:width .5s;opacity:.5"></div><span style="position:absolute;left:8px;top:3px;font-weight:600">'+esc(opt)+'</span></div><span style="color:var(--sky);font-weight:700;min-width:35px;text-align:right">'+cnt+' ('+pct+'%)</span></div>';
+    }).join("");
+    d.innerHTML='<div class="poll-q">'+esc(p.question)+'</div>'+optsHtml
+      +'<div class="poll-meta"><span class="poll-status '+(p.status==="open"?"open":"closed")+'">'+(p.status==="open"?"🟢 Open":"🔴 Closed")+'</span><span>'+totalVotes+' suara · '+fD(p.timestamp)+'</span></div>'
+      +'<div class="poll-actions">'+(p.status==="open"?'<button class="btn-poll-close" onclick="closePoll(\''+p.key+'\')">Tutup Polling</button>':'')
+      +'<button class="btn-poll-del" onclick="deletePoll(\''+p.key+'\')"><i class="fas fa-trash"></i></button></div>';
+    list.appendChild(d);
+  });
+}
+
+function appendPollMsg(msg,key){
+  var pollKey=msg.pollId||key;
+  if(!renderedKeys.msgs["poll-"+pollKey]){
+    renderedKeys.msgs["poll-"+pollKey]=true;
+    var wrap=document.getElementById("msgs");
+    if(wrap){
+      var div=document.createElement("div");div.className="msg-poll";div.setAttribute("data-poll",pollKey);
+      wrap.appendChild(div);wrap.scrollTop=wrap.scrollHeight;
+      renderPollInChat(pollKey,div);
+    }
+  }
+  if(meAdm&&!renderedKeys.adminMsgs["poll-"+pollKey]){
+    renderedKeys.adminMsgs["poll-"+pollKey]=true;
+    var awrap=document.getElementById("admin-msgs");
+    if(awrap){
+      var adiv=document.createElement("div");adiv.className="msg-poll";adiv.setAttribute("data-poll",pollKey+"-adm");
+      awrap.appendChild(adiv);awrap.scrollTop=awrap.scrollHeight;
+      renderPollInChat(pollKey,adiv);
+    }
+  }
+}
+
+function renderPollInChat(pollKey,container){
+  db.ref("polls/"+pollKey).on("value",function(snap){
+    if(!snap.exists()){container.innerHTML="";return;}
+    var p=snap.val();var opts=p.options||[];var votes=p.votes||{};
+    var totalVotes=Object.keys(votes).length;
+    var myVote=me?votes[safeKey(me)]:null;
+    var isOpen=p.status==="open";
+    var optsHtml=opts.map(function(opt,i){
+      var cnt=Object.values(votes).filter(function(v){return v===i;}).length;
+      var pct=totalVotes>0?Math.round(cnt/totalVotes*100):0;
+      var voted=(myVote===i);
+      return '<div class="poll-opt'+(voted?" voted":"")+'" onclick="votePoll(\''+pollKey+'\','+i+')">'
+        +'<div class="poll-bar" style="width:'+pct+'%"></div>'
+        +'<div class="poll-opt-inner">'
+        +'<div class="poll-opt-icon">'+(voted?'<i class="fas fa-check"></i>':'')+'</div>'
+        +'<span class="poll-opt-label">'+esc(opt)+'</span>'
+        +'<span class="poll-opt-pct">'+pct+'%</span>'
+        +'</div></div>';
+    }).join("");
+    container.innerHTML='<div class="poll-chat-card">'
+      +'<div style="font-size:10px;color:var(--sky);font-weight:700;margin-bottom:4px">📊 POLLING</div>'
+      +'<div class="poll-chat-q">'+esc(p.question)+'</div>'
+      +'<div class="poll-chat-meta">'+totalVotes+' suara · <span class="poll-status '+(isOpen?"open":"closed")+'" style="padding:1px 7px">'+(isOpen?"🟢 Open":"🔴 Tutup")+'</span></div>'
+      +(isOpen?optsHtml:'<div style="font-size:12px;color:var(--txt2);margin-top:6px">Polling telah ditutup</div>')
+      +'</div>';
+    var wrap=container.parentElement;
+    if(wrap)setTimeout(function(){wrap.scrollTop=wrap.scrollHeight;},50);
+  });
+}
+
+function votePoll(pollKey,optIdx){
+  if(!me){toast("Login dulu!","err");return;}
+  db.ref("polls/"+pollKey).once("value").then(function(snap){
+    if(!snap.exists()||snap.val().status!=="open"){toast("Polling sudah ditutup!","err");return;}
+    var key=safeKey(me);
+    db.ref("polls/"+pollKey+"/votes/"+key).set(optIdx).then(function(){toast("Vote tercatat! ✅","ok");});
+  });
+}
+
+function closePoll(key){if(!confirm("Tutup polling ini?"))return;db.ref("polls/"+key+"/status").set("closed").then(function(){toast("Polling ditutup!","ok");});}
+function deletePoll(key){if(!confirm("Hapus polling?"))return;db.ref("polls/"+key).remove().then(function(){toast("Dihapus!","ok");});}
+
+/* ── ADMIN NAV ── */
+function openAdmin(){if(!meAdm)return;show("admin-screen");adminTab("chat");}
+function goChat(){show("chat-screen");}
+function adminTab(t){
+  ["chat","notif","warn","poll","mnt"].forEach(function(x){
+    document.getElementById("nb-"+x).classList.toggle("active",x===t);
+    var tab=document.getElementById("at-"+x);
+    tab.style.display=(x===t)?"flex":"none";
+    if(x===t)tab.classList.add("active");else tab.classList.remove("active");
+  });
+  if(t==="chat"){setTimeout(function(){var am=document.getElementById("admin-msgs");if(am)am.scrollTop=am.scrollHeight;},50);}
+}
+
+/* ── ADMIN NAME CHANGE ── */
+function changeAdminName(){
+  if(!meAdm)return;
+  var newName=document.getElementById("admin-newname").value.trim();
+  if(!newName){toast("Tulis nama dulu!","err");return;}
+  if(newName.length>20){toast("Maks 20 karakter!","err");return;}
+  if(newName===me){toast("Nama sama!","err");return;}
+  auth.currentUser&&db.ref("admins/"+auth.currentUser.uid+"/displayName").set(newName).then(function(){
+    me=newName;setUserUI(me,true);
+    document.getElementById("admin-newname").value="";
+    toast("Nama admin diubah ke: "+newName+" ✅","ok");
+  }).catch(function(){
+    me=newName;setUserUI(me,true);
+    document.getElementById("admin-newname").value="";
+    toast("Nama diubah (lokal): "+newName,"ok");
+  });
+}
+
+/* ── AUTO RESTORE SESSION ── */
+(function tryRestoreSession(){
+  var s=loadSession();
+  if(!s||!s.name)return;
+  if(s.isAdm){
+    // Admin: re-auth via Firebase (don't auto-restore admin, needs fresh login for security)
+    return;
+  }
+  // Member: restore session
+  var name=s.name;
+  checkBanWarn(name,function(status,data){
+    if(status==="banned"||status==="warned"){
+      // Restore with splash
+      me=name;meAdm=false;loginTime=s.loginTime||Date.now();
+      setUserUI(name,false);
+      show("chat-screen");
+      showPenaltySplash(status,data.until,data.reason||"");
+      startChat();
+      return;
+    }
+    // Check maintenance
+    db.ref("settings/maintenance").once("value").then(function(msnap){
+      var isMaint=msnap.val()===true;
+      me=name;meAdm=false;loginTime=s.loginTime||Date.now();
+      setUserUI(name,false);
+      if(isMaint){show("maint-screen");}
+      else{show("chat-screen");}
+      startChat();
+      toast("Selamat datang kembali, "+name+"! 👋","ok");
+    });
+  });
+})();
+
+document.getElementById("mname").addEventListener("keydown",function(e){if(e.key==="Enter")loginMember();});
+document.getElementById("apass").addEventListener("keydown",function(e){if(e.key==="Enter")loginAdmin();});
+</script>
+</body>
+</html>
