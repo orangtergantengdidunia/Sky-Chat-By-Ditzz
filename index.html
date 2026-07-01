@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MATCH CENTER — Live Scoreboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Orbitron:wght@600;700;800;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Background layers -->
+  <canvas id="fx-canvas"></canvas>
+  <div class="bg-vignette"></div>
+  <div class="bg-glow bg-glow--left"></div>
+  <div class="bg-glow bg-glow--right"></div>
+
+  <!-- Decorative giant numbers -->
+  <div class="big-number big-number--left">01</div>
+  <div class="big-number big-number--right">90</div>
+
+  <!-- Top branding strip -->
+  <div class="broadcast-header" id="broadcast-header">
+    <div class="broadcast-header__mark">
+      <span class="mark-dot"></span>
+      <span class="mark-text">MATCH CENTER</span>
+    </div>
+    <div class="broadcast-header__meta">
+      <span id="league-name">FIFA WORLD CUP · FINAL</span>
+      <span class="meta-sep">/</span>
+      <span id="stadium-name">LUSAIL STADIUM</span>
+    </div>
+  </div>
+
+  <!-- Main scoreboard -->
+  <main class="scoreboard" id="scoreboard">
+
+    <!-- Left team -->
+    <section class="team team--left" id="team-left">
+      <div class="team__crest" id="crest-left">
+        <svg viewBox="0 0 100 100" class="crest-svg"><use href="#crest-shield"></use></svg>
+        <span class="crest-initial" id="crest-initial-left">A</span>
+      </div>
+      <div class="team__info">
+        <span class="team__code" id="team-code-left">ARG</span>
+        <span class="team__name" id="team-name-left">ARGENTINA</span>
+      </div>
+    </section>
+
+    <!-- Center -->
+    <section class="center">
+      <div class="center__timer-row">
+        <div class="status-pill" id="status-pill">
+          <span class="status-pill__dot" id="status-dot"></span>
+          <span class="status-pill__label" id="status-label">LIVE</span>
+        </div>
+        <div class="timer" id="timer">89:45</div>
+        <div class="matchday" id="matchday">MATCHDAY 07</div>
+      </div>
+
+      <div class="score-row">
+        <span class="score score--left" id="score-left">2</span>
+        <div class="score-mid">
+          <span class="score-sep">—</span>
+          <div class="emblem" id="emblem">
+            <svg viewBox="0 0 120 140" class="emblem-svg">
+              <defs>
+                <linearGradient id="gold-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#FFE9AE"/>
+                  <stop offset="45%" stop-color="#D8AF5C"/>
+                  <stop offset="100%" stop-color="#8A6A2E"/>
+                </linearGradient>
+              </defs>
+              <path d="M60 6 C78 6 92 16 92 16 L92 46 C92 78 78 102 60 118 C42 102 28 78 28 46 L28 16 C28 16 42 6 60 6 Z"
+                    fill="url(#gold-grad)" stroke="#FFF3D0" stroke-width="1.2" opacity="0.95"/>
+              <circle cx="60" cy="52" r="20" fill="none" stroke="#0B0B0E" stroke-width="2" opacity="0.55"/>
+              <path d="M60 34 L64.5 47 L78 47 L67 55.5 L71 68.5 L60 60.5 L49 68.5 L53 55.5 L42 47 L55.5 47 Z" fill="#0B0B0E" opacity="0.7"/>
+            </svg>
+          </div>
+          <span class="score-sep">—</span>
+        </div>
+        <span class="score score--right" id="score-right">1</span>
+      </div>
+    </section>
+
+    <!-- Right team -->
+    <section class="team team--right" id="team-right">
+      <div class="team__info">
+        <span class="team__code" id="team-code-right">FRA</span>
+        <span class="team__name" id="team-name-right">FRANCE</span>
+      </div>
+      <div class="team__crest" id="crest-right">
+        <svg viewBox="0 0 100 100" class="crest-svg"><use href="#crest-shield"></use></svg>
+        <span class="crest-initial" id="crest-initial-right">F</span>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom ticker -->
+  <div class="bottom-bar" id="bottom-bar">
+    <div class="bottom-bar__item">
+      <span class="dot dot--possession-l" id="poss-left-dot"></span>
+      POSSESSION <span id="poss-left">54%</span>
+    </div>
+    <div class="bottom-bar__divider"></div>
+    <div class="bottom-bar__item" id="last-event">⚽ GOAL — MESSI 87'</div>
+    <div class="bottom-bar__divider"></div>
+    <div class="bottom-bar__item">
+      <span id="poss-right">46%</span> POSSESSION
+      <span class="dot dot--possession-r" id="poss-right-dot"></span>
+    </div>
+  </div>
+
+  <!-- Shared SVG defs -->
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <g id="crest-shield">
+        <path d="M50 4 C68 4 84 12 84 12 L84 44 C84 74 68 92 50 98 C32 92 16 74 16 44 L16 12 C16 12 32 4 50 4 Z" />
+      </g>
+    </defs>
+  </svg>
+
+  <script src="script.js"></script>
+</body>
+</html>
